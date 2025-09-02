@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from trajectory_generator import generate_sine_cosine_trajectories
 
+# pylint: disable=all
 # Parameters
 LOOK_BACK = 50  # past frames
 FORWARD_LEN = 10  # future frames
@@ -144,18 +145,36 @@ true_future = y_test_tensor[0:1].cpu().numpy()
 
 # Model prediction
 model.eval()
+test_loss = 0
+pred_future = None
 with torch.no_grad():
-    pred_future = model(test_input, future_len=FORWARD_LEN).cpu().numpy()
+    for batch_x, batch_y in test_loader:
+        batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+        outputs = model(batch_x, future_len=FORWARD_LEN)
+        loss = criterion(outputs, batch_y)
+        test_loss += loss.item()
+
+        # Save prediction for the very first test input
+        if pred_future is None:
+            pred_future = outputs.cpu().numpy()
+            print("Saved pred_future shape:", pred_future.shape)
+
+avg_test_loss = test_loss / len(test_loader)
+print(f"Test Loss: {avg_test_loss:.6f}")
 
 # Convert tensors to numpy
 past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 2)
 true_fut = y_test_tensor[0:1].cpu().numpy()[0]  # shape (FORWARD_LEN, 2)
+if pred_future is None:
+    with torch.no_grad():
+        pred_future = model(test_input, future_len=FORWARD_LEN).cpu().numpy()
 pred_fut = pred_future[0]  # shape (FORWARD_LEN, 2)
 
 # Concatenate last past point with future to make continuous lines
 true_line = np.vstack([past[-1:], true_fut])
 pred_line = np.vstack([past[-1:], pred_fut])
 
+# Plot actual vs predicted test trajectory
 plt.figure(figsize=(6, 6))
 plt.plot(past[:, 0], past[:, 1], "b.-", label="Past (50)")
 plt.plot(true_line[:, 0], true_line[:, 1], "g.-", label="True Future (10)")

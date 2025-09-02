@@ -1,9 +1,10 @@
 """
 trajectory_generator.py
 
-This module generates smooth 2D trajectories using sine and cosine patterns 
+This module generates smooth 2D trajectories using sine and cosine patterns
 with random amplitude and optional noise.
 """
+
 import numpy as np
 
 
