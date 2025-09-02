@@ -14,9 +14,9 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from trajectory_generator import generate_sine_cosine_trajectories
+from trajectory_generator import generate_sine_cosine_trajectories_3d
+from plot_trajectory import plot_3d_trajectory
 
 # pylint: disable=all
 # Parameters
@@ -30,12 +30,13 @@ BATCH_SIZE = 64
 n_samples = 100
 traj_len = 200
 
-data = generate_sine_cosine_trajectories(
+# (n_samples, traj_len, 2)
+data_3d = generate_sine_cosine_trajectories_3d(
     n_samples=n_samples, traj_len=traj_len, noise_scale=0.05
 )
 
 X, y = [], []
-for traj in data:
+for traj in data_3d:
     for i in range(len(traj) - LOOK_BACK - FORWARD_LEN):
         X.append(traj[i : i + LOOK_BACK])
         y.append(traj[i + LOOK_BACK : i + LOOK_BACK + FORWARD_LEN])
@@ -81,7 +82,7 @@ class TrajPredictor(nn.Module):
         - Decodes step by step autoregressively to generate FORWARD_LEN future coordinates.
     """
 
-    def __init__(self, input_size=2, hidden_size=128, output_size=2, num_layers=1):
+    def __init__(self, input_size=3, hidden_size=128, output_size=3, num_layers=1):
         super(TrajPredictor, self).__init__()
         self.encoder = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
         self.decoder = nn.LSTM(output_size, hidden_size, num_layers, batch_first=True)
@@ -139,14 +140,9 @@ for epoch in range(EPOCHS):
 
     print(f"Epoch {epoch + 1}/{EPOCHS}, Loss: {total_loss / len(train_loader):.6f}")
 
-# Take the first test sequence
-test_input = X_test_tensor[0:1].to(device)
-true_future = y_test_tensor[0:1].cpu().numpy()
-
-# Model prediction
+# Compute test loss
 model.eval()
 test_loss = 0
-pred_future = None
 with torch.no_grad():
     for batch_x, batch_y in test_loader:
         batch_x, batch_y = batch_x.to(device), batch_y.to(device)
@@ -154,31 +150,32 @@ with torch.no_grad():
         loss = criterion(outputs, batch_y)
         test_loss += loss.item()
 
-        # Save prediction for the very first test input
-        if pred_future is None:
-            pred_future = outputs.cpu().numpy()
-            print("Saved pred_future shape:", pred_future.shape)
-
 avg_test_loss = test_loss / len(test_loader)
 print(f"Test Loss: {avg_test_loss:.6f}")
 
-# Convert tensors to numpy
+# Visualize prediction for a random test sequence
+test_idx = np.random.randint(len(X_test_tensor))
+test_input = X_test_tensor[test_idx : test_idx + 1].to(
+    device
+)  # shape (1, LOOK_BACK, 2)
+true_future = y_test_tensor[test_idx].numpy()  # shape (FORWARD_LEN, 2)
+
+with torch.no_grad():
+    pred_future = model(test_input, future_len=FORWARD_LEN).cpu().numpy()
+
 past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 2)
-true_fut = y_test_tensor[0:1].cpu().numpy()[0]  # shape (FORWARD_LEN, 2)
-if pred_future is None:
-    with torch.no_grad():
-        pred_future = model(test_input, future_len=FORWARD_LEN).cpu().numpy()
-pred_fut = pred_future[0]  # shape (FORWARD_LEN, 2)
+pred_future = pred_future[0]  # shape (FORWARD_LEN, 2)
 
 # Concatenate last past point with future to make continuous lines
-true_line = np.vstack([past[-1:], true_fut])
-pred_line = np.vstack([past[-1:], pred_fut])
+true_line = np.vstack([past[-1:], true_future])
+pred_line = np.vstack([past[-1:], pred_future])
 
 # Plot actual vs predicted test trajectory
-plt.figure(figsize=(6, 6))
-plt.plot(past[:, 0], past[:, 1], "b.-", label="Past (50)")
-plt.plot(true_line[:, 0], true_line[:, 1], "g.-", label="True Future (10)")
-plt.plot(pred_line[:, 0], pred_line[:, 1], "r.-", label="Predicted Future (10)")
-plt.legend()
-plt.title("2D Trajectory Prediction with PyTorch LSTM")
-plt.show()
+plot_3d_trajectory(
+    past,
+    true_line,
+    pred_line,
+    labels=["Past", "True Future", "Predicted Future"],
+    colors=["b", "g", "r"],
+    title="3D Trajectory Prediction with PyTorch LSTM",
+)
