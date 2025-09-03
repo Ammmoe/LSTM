@@ -21,7 +21,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from data.trajectory_generator import generate_sine_cosine_trajectories_3d
 from utils.visualization import plot_3d_trajectories_subplots
-from models.lstm_predictor import TrajPredictor
+from models.gru_predictor import TrajPredictor
 from utils.logger import get_logger
 import time
 
@@ -97,6 +97,10 @@ model_params = {
 model = TrajPredictor(**model_params).to(device)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+# Log model info
+logger.info(f"Model module: {model.__class__.__module__}")
+logger.info(f"Model architecture:\n{model}")
 
 # Log time taken for training
 start_time = time.time()
