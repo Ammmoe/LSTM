@@ -2,7 +2,7 @@
 trajectory_generator.py
 
 This module generates smooth 2D and 3D trajectories using sine and cosine patterns
-with random amplitude and optional noise.
+with random amplitude, frequency and optional noise.
 """
 
 from typing import cast, List, Tuple
@@ -12,7 +12,12 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 def plot_2d_trajectory(
-    *trajectories, labels=None, colors=None, title="2D Trajectory Plot", figsize=(6, 6)
+    *trajectories,
+    labels=None,
+    colors=None,
+    title="2D Trajectory Plot",
+    figsize=(6, 6),
+    save_path: str | None = None,
 ):
     """
     Plot 2D trajectories.
@@ -39,11 +44,21 @@ def plot_2d_trajectory(
     ax.set_title(title)
     if labels:
         ax.legend()
+
+    # save figure if path provided
+    if save_path:
+        plt.savefig(save_path)
+
     plt.show()
 
 
 def plot_3d_trajectory(
-    *trajectories, labels=None, colors=None, title="3D Trajectory Plot", figsize=(8, 6)
+    *trajectories,
+    labels=None,
+    colors=None,
+    title="3D Trajectory Plot",
+    figsize=(8, 6),
+    save_path: str | None = None,
 ):
     """
     Plot 3D trajectories.
@@ -72,6 +87,11 @@ def plot_3d_trajectory(
     ax.set_title(title)
     if labels:
         ax.legend()
+
+    # save figure if path provided
+    if save_path:
+        plt.savefig(save_path)
+
     plt.show()
 
 
@@ -81,6 +101,7 @@ def plot_3d_trajectories_subplots(
     colors: List[str] | None = None,
     title: str = "3D Trajectory Predictions (Random Examples)",
     figsize: Tuple[int, int] = (15, 5),
+    save_path: str | None = None,
 ) -> None:
     """
     Plot multiple 3D trajectory sets as subplots in one figure.
@@ -128,6 +149,11 @@ def plot_3d_trajectories_subplots(
 
     plt.suptitle(title)
     plt.tight_layout()
+
+    # save figure if path provided
+    if save_path:
+        plt.savefig(save_path)
+
     plt.show()
 
 
