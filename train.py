@@ -23,6 +23,7 @@ from data.trajectory_generator import generate_sine_cosine_trajectories_3d
 from utils.visualization import plot_3d_trajectories_subplots
 from models.lstm_predictor import TrajPredictor
 from utils.logger import get_logger
+import time
 
 # pylint: disable=all
 # Data parameters
@@ -33,14 +34,10 @@ N_SAMPLES = 100
 TRAJ_LEN = 200
 NOISE_SCALE = 0.05
 
-# Model parameters
+# Training parameters
 EPOCHS = 10
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
-MODEL_INPUT_SIZE = 3
-MODEL_HIDDEN_SIZE = 128
-MODEL_OUTPUT_SIZE = 3
-MODEL_NUM_LAYERS = 1
 
 # Plotting parameters
 NUM_PLOTS = 3
@@ -91,14 +88,18 @@ logger.info(f"Test sequences: {X_test_tensor.shape}")
 
 # Train Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = TrajPredictor(
-    input_size=MODEL_INPUT_SIZE,
-    hidden_size=MODEL_HIDDEN_SIZE,
-    output_size=MODEL_OUTPUT_SIZE,
-    num_layers=MODEL_NUM_LAYERS,
-).to(device)
+model_params = {
+    "input_size": 3,
+    "hidden_size": 128,
+    "output_size": 3,
+    "num_layers": 2,
+}
+model = TrajPredictor(**model_params).to(device)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+# Log time taken for training
+start_time = time.time()
 
 model.train()
 for epoch in range(EPOCHS):
@@ -117,6 +118,10 @@ for epoch in range(EPOCHS):
 
     # Log per-epoch training metrics
     logger.info(f"Epoch {epoch + 1}/{EPOCHS} - Train Loss: {avg_train_loss:.6f}")
+
+end_time = time.time()
+elapsed_time = end_time - start_time
+logger.info(f"Total training time: {elapsed_time:.2f} seconds")
 
 # Evaluate Model
 model.eval()
@@ -142,10 +147,7 @@ config = {
     "device": str(device),
     "model_module": model.__class__.__module__,
     "model_class": model.__class__.__name__,
-    "model_input_size": MODEL_INPUT_SIZE,
-    "model_hidden_size": MODEL_HIDDEN_SIZE,
-    "model_output_size": MODEL_OUTPUT_SIZE,
-    "model_num_layers": MODEL_NUM_LAYERS,
+    "model_params": model_params,
     "LOOK_BACK": LOOK_BACK,
     "FORWARD_LEN": FORWARD_LEN,
     "FEATURES": FEATURES,
