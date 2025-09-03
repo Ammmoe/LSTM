@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.model_selection import train_test_split
 from trajectory_generator import generate_sine_cosine_trajectories_3d
-from plot_trajectory import plot_3d_trajectory
+from plot_trajectory import plot_3d_trajectories_subplots
 
 # pylint: disable=all
 # Parameters
@@ -121,7 +121,9 @@ class TrajPredictor(nn.Module):
 
 # Train Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = TrajPredictor().to(device)
+model = TrajPredictor(input_size=3, hidden_size=128, output_size=3, num_layers=1).to(
+    device
+)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
@@ -140,7 +142,7 @@ for epoch in range(EPOCHS):
 
     print(f"Epoch {epoch + 1}/{EPOCHS}, Loss: {total_loss / len(train_loader):.6f}")
 
-# Compute test loss
+# Evaluate Model
 model.eval()
 test_loss = 0
 with torch.no_grad():
@@ -153,29 +155,26 @@ with torch.no_grad():
 avg_test_loss = test_loss / len(test_loader)
 print(f"Test Loss: {avg_test_loss:.6f}")
 
-# Visualize prediction for a random test sequence
-test_idx = np.random.randint(len(X_test_tensor))
-test_input = X_test_tensor[test_idx : test_idx + 1].to(
-    device
-)  # shape (1, LOOK_BACK, 2)
-true_future = y_test_tensor[test_idx].numpy()  # shape (FORWARD_LEN, 2)
+# Visualize prediction for three random test sequences
+num_plots = 3
+random_test_indices = np.random.choice(len(X_test_tensor), num_plots, replace=False)
 
-with torch.no_grad():
-    pred_future = model(test_input, future_len=FORWARD_LEN).cpu().numpy()
+trajectory_sets = []
+for idx in random_test_indices:
+    test_input = X_test_tensor[idx : idx + 1].to(device)  # shape (1, LOOK_BACK, 2)
+    true_future = y_test_tensor[idx].numpy()  # shape (FORWARD_LEN, 2)
 
-past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 2)
-pred_future = pred_future[0]  # shape (FORWARD_LEN, 2)
+    with torch.no_grad():
+        pred_future = model(test_input, future_len=FORWARD_LEN).cpu().numpy()
 
-# Concatenate last past point with future to make continuous lines
-true_line = np.vstack([past[-1:], true_future])
-pred_line = np.vstack([past[-1:], pred_future])
+    past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 2)
+    pred_future = pred_future[0]  # shape (FORWARD_LEN, 2)
+
+    # Concatenate last past point with future to make continuous lines
+    true_line = np.vstack([past[-1:], true_future])
+    pred_line = np.vstack([past[-1:], pred_future])
+
+    trajectory_sets.append((past, true_line, pred_line))
 
 # Plot actual vs predicted test trajectory
-plot_3d_trajectory(
-    past,
-    true_line,
-    pred_line,
-    labels=["Past", "True Future", "Predicted Future"],
-    colors=["b", "g", "r"],
-    title="3D Trajectory Prediction with PyTorch LSTM",
-)
+plot_3d_trajectories_subplots(trajectory_sets)
