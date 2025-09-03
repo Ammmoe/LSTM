@@ -18,71 +18,101 @@ import time
 import json
 import torch
 from torch import nn
-from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.model_selection import train_test_split
-from data.trajectory_generator import generate_sine_cosine_trajectories_3d
+from sklearn.preprocessing import MinMaxScaler
+from torch.utils.data import DataLoader, TensorDataset
+from data.artificial_trajectory_generator import generate_sine_cosine_trajectories_3d
 from models.rnn_predictor import TrajPredictor
 from utils.logger import get_logger
-from utils.visualization import plot_3d_trajectories_subplots
+from utils.visualization import plot_3d_trajectories_subplots, plot_3d_geo_trajectories
+from data.trajectory_loader import load_quadcopter_trajectories
 
 # pylint: disable=all
+# Settings
+DATA_TYPE = "quadcopter"  # "artificial" or "quadcopter"
+
 # Data parameters
 LOOK_BACK = 50  # past frames
 FORWARD_LEN = 10  # future frames
-FEATURES = 2  # x,y coords
-N_SAMPLES = 100
-TRAJ_LEN = 200
-NOISE_SCALE = 0.05
+FEATURES = 3 # x, y, z
+
+# Initialize variables
+N_SAMPLES = 0
+data_3d = None
 
 # Training parameters
-EPOCHS = 10
+EPOCHS = 2
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 
 # Plotting parameters
-NUM_PLOTS = 3
+NUM_PLOTS = 1
 
 # Setup logger and experiment folder
 logger, exp_dir = get_logger()
 
+# Ensure experiment folder exists
+os.makedirs(exp_dir, exist_ok=True)
+
 logger.info("Experiment started")
 logger.info("Experiment folder: %s", exp_dir)
 
-# (n_samples, traj_len, 2)
-data_3d = generate_sine_cosine_trajectories_3d(
-    n_samples=N_SAMPLES, traj_len=TRAJ_LEN, noise_scale=NOISE_SCALE
-)
+if DATA_TYPE == "quadcopter":
+    logger.info("Using quadcopter trajectory data")
+    
+    # Load trajectories
+    data_3d, N_SAMPLES = load_quadcopter_trajectories("data/quadcopter_flights.csv")
 
+else:
+    logger.info("Using artificial sine/cosine trajectory data")
+
+    # Generate synthetic 3D trajectory data
+    N_SAMPLES = 100
+    TRAJ_LEN = 200
+    NOISE_SCALE = 0.05
+
+    # (n_samples, traj_len, 2)
+    data_3d = generate_sine_cosine_trajectories_3d(
+        n_samples=N_SAMPLES, traj_len=TRAJ_LEN, noise_scale=NOISE_SCALE
+    )
+
+# Prepare DataLoaders
 X, y = [], []
-for traj in data_3d:
-    for i in range(len(traj) - LOOK_BACK - FORWARD_LEN):
-        X.append(traj[i : i + LOOK_BACK])
-        y.append(traj[i + LOOK_BACK : i + LOOK_BACK + FORWARD_LEN])
-
-X = np.array(X)  # (num_sequences, LOOK_BACK, 2)
-y = np.array(y)  # (num_sequences, FORWARD_LEN, 2)
+for trajectory in data_3d:
+    for i in range(len(trajectory) - LOOK_BACK - FORWARD_LEN + 1):
+        X.append(trajectory[i : i + LOOK_BACK])
+        y.append(trajectory[i + LOOK_BACK : i + LOOK_BACK + FORWARD_LEN])
+        
+X = np.array(X, dtype=np.float32)
+y = np.array(y, dtype=np.float32)
 
 # Split sequences into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, shuffle=True
 )
 
-# Convert to PyTorch tensors
-X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
-X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
+# Scale data to [0, 1]
+scaler = MinMaxScaler(feature_range=(0, 1))
+X_train_scaled = scaler.fit_transform(X_train.reshape(-1, 3)).reshape(X_train.shape)
+X_test_scaled = scaler.transform(X_test.reshape(-1, 3)).reshape(X_test.shape)
 
-# Create DataLoaders
-train_dataset = TensorDataset(X_train_tensor, y_train_tensor)
-test_dataset = TensorDataset(X_test_tensor, y_test_tensor)
+y_train_scaled = scaler.transform(y_train.reshape(-1, 3)).reshape(y_train.shape)
+y_test_scaled = scaler.transform(y_test.reshape(-1, 3)).reshape(y_test.shape)
 
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+# Convert to tensors
+X_train_tensor = torch.tensor(X_train_scaled, dtype=torch.float32)
+X_test_tensor = torch.tensor(X_test_scaled, dtype=torch.float32)
+y_train_tensor = torch.tensor(y_train_scaled, dtype=torch.float32)
+y_test_tensor = torch.tensor(y_test_scaled, dtype=torch.float32)
+
+# Now create DataLoaders
+train_loader = DataLoader(TensorDataset(X_train_tensor, y_train_tensor), batch_size=BATCH_SIZE, shuffle=True)
+test_loader = DataLoader(TensorDataset(X_test_tensor, y_test_tensor), batch_size=BATCH_SIZE, shuffle=False)
 
 # Log dataset sizes
-logger.info("Total sequences: %d", X.shape[0])
+total_sequences = X_train_tensor.shape[0] + X_test_tensor.shape[0]
+logger.info("Total sequences: %d", total_sequences)
 logger.info("Train sequences: %s", X_train_tensor.shape)
 logger.info("Test sequences: %s", X_test_tensor.shape)
 
@@ -92,7 +122,7 @@ model_params = {
     "input_size": 3,
     "hidden_size": 128,
     "output_size": 3,
-    "num_layers": 2,
+    "num_layers": 1,
 }
 model = TrajPredictor(**model_params).to(device)
 criterion = nn.MSELoss()
@@ -159,8 +189,6 @@ config = {
     "BATCH_SIZE": BATCH_SIZE,
     "LEARNING_RATE": LEARNING_RATE,
     "N_SAMPLES": N_SAMPLES,
-    "TRAJ_LEN": TRAJ_LEN,
-    "NOISE_SCALE": NOISE_SCALE,
     "NUM_PLOTS": NUM_PLOTS,
 }
 
@@ -175,21 +203,30 @@ random_test_indices = np.random.choice(len(X_test_tensor), NUM_PLOTS, replace=Fa
 
 trajectory_sets = []
 for idx in random_test_indices:
-    test_input = X_test_tensor[idx : idx + 1].to(device)  # shape (1, LOOK_BACK, 2)
-    true_future = y_test_tensor[idx].numpy()  # shape (FORWARD_LEN, 2)
+    test_input = X_test_tensor[idx : idx + 1].to(device)  # shape (1, LOOK_BACK, 3)
+    true_future = y_test_tensor[idx].numpy()  # shape (FORWARD_LEN, 3)
 
     with torch.no_grad():
         pred_future = model(test_input, future_len=FORWARD_LEN).cpu().numpy()
 
-    past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 2)
-    pred_future = pred_future[0]  # shape (FORWARD_LEN, 2)
+    past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
+    pred_future = pred_future[0]  # shape (FORWARD_LEN, 3)
+    
+    # Inverse transform to original scale
+    past_orig = scaler.inverse_transform(past)
+    true_future_orig = scaler.inverse_transform(true_future)
+    pred_future_orig = scaler.inverse_transform(pred_future)
 
     # Concatenate last past point with future to make continuous lines
-    true_line = np.vstack([past[-1:], true_future])
-    pred_line = np.vstack([past[-1:], pred_future])
+    true_line = np.vstack([past_orig[-1:], true_future_orig])
+    pred_line = np.vstack([past_orig[-1:], pred_future_orig])
 
-    trajectory_sets.append((past, true_line, pred_line))
+    trajectory_sets.append((past_orig, true_line, pred_line))
 
 # Plot actual vs predicted test trajectory
 plot_path = os.path.join(exp_dir, "trajectory_plot.png")
-plot_3d_trajectories_subplots(trajectory_sets, save_path=plot_path)
+
+if DATA_TYPE == "quadcopter":
+    plot_3d_geo_trajectories(trajectory_sets, save_path=plot_path)
+else:
+    plot_3d_trajectories_subplots(trajectory_sets, save_path=plot_path)

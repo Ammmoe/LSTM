@@ -157,6 +157,71 @@ def plot_3d_trajectories_subplots(
     plt.show()
 
 
+def plot_3d_geo_trajectories(
+    trajectory_sets: List[Tuple[np.ndarray, np.ndarray, np.ndarray]],
+    labels: List[str] | None = None,
+    colors: List[str] | None = None,
+    title: str = "3D Trajectory Predictions (Lat/Lon/Alt)",
+    figsize: Tuple[int, int] = (15, 5),
+    lat_grid: float = 0.005,
+    lon_grid: float = 0.005,
+    alt_grid: float = 1.0,
+    save_path: str | None = None,
+) -> None:
+    """
+    Plot multiple 3D trajectory sets as subplots with custom scaling for
+    latitude, longitude, and altitude axes.
+    """
+    num_plots = len(trajectory_sets)
+    fig = plt.figure(figsize=figsize)
+
+    for i, (past, true_line, pred_line) in enumerate(trajectory_sets, 1):
+        ax = cast(Axes3D, fig.add_subplot(1, num_plots, i, projection="3d"))
+
+        # Colors and labels
+        past_color, true_color, pred_color = (colors or ["b", "g", "r"])
+        past_label, true_label, pred_label = (labels or ["Past", "True", "Predicted"])
+
+        # Plot lines
+        ax.plot(past[:,0], past[:,1], past[:,2], f"{past_color}.-", label=past_label)
+        ax.plot(true_line[:,0], true_line[:,1], true_line[:,2], f"{true_color}.-", label=true_label)
+        ax.plot(pred_line[:,0], pred_line[:,1], pred_line[:,2], f"{pred_color}.-", label=pred_label)
+
+        # Axis labels
+        ax.set_xlabel("Latitude / degree")
+        ax.set_ylabel("Longitude / degree")
+        ax.set_zlabel("Altitude / meter")
+        ax.set_title(f"Trajectory {i}")
+        ax.legend()
+
+        # Compute limits
+        lat_min = min(past[:,0].min(), true_line[:,0].min(), pred_line[:,0].min())
+        lat_max = max(past[:,0].max(), true_line[:,0].max(), pred_line[:,0].max())
+        lon_min = min(past[:,1].min(), true_line[:,1].min(), pred_line[:,1].min())
+        lon_max = max(past[:,1].max(), true_line[:,1].max(), pred_line[:,1].max())
+        alt_min = float(min(past[:,2].min(), true_line[:,2].min(), pred_line[:,2].min()))
+        alt_max = float(max(past[:,2].max(), true_line[:,2].max(), pred_line[:,2].max()))
+
+
+        # Set axis limits
+        ax.set_xlim(lat_min - lat_grid, lat_max + lat_grid)
+        ax.set_ylim(lon_min - lon_grid, lon_max + lon_grid)
+        ax.set_zlim(alt_min - alt_grid, alt_max + alt_grid)
+
+        # Set custom grid ticks
+        ax.set_xticks(np.arange(lat_min, lat_max + lat_grid, lat_grid))
+        ax.set_yticks(np.arange(lon_min, lon_max + lon_grid, lon_grid))
+        ax.zaxis.set_ticks(np.arange(alt_min, alt_max + alt_grid, alt_grid))
+
+    plt.suptitle(title)
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path)
+
+    plt.show()
+
+
 # Example usage:
 
 # plot_2d_trajectory(past, true_line, pred_line,
