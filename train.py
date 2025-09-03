@@ -22,7 +22,7 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.model_selection import train_test_split
 from data.trajectory_generator import generate_sine_cosine_trajectories_3d
-from models.gru_predictor import TrajPredictor
+from models.rnn_predictor import TrajPredictor
 from utils.logger import get_logger
 from utils.visualization import plot_3d_trajectories_subplots
 
