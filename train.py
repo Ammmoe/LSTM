@@ -14,16 +14,17 @@ Main steps:
 """
 
 import os
+import time
+import json
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from sklearn.model_selection import train_test_split
 from data.trajectory_generator import generate_sine_cosine_trajectories_3d
-from utils.visualization import plot_3d_trajectories_subplots
 from models.gru_predictor import TrajPredictor
 from utils.logger import get_logger
-import time
+from utils.visualization import plot_3d_trajectories_subplots
 
 # pylint: disable=all
 # Data parameters
@@ -46,7 +47,7 @@ NUM_PLOTS = 3
 logger, exp_dir = get_logger()
 
 logger.info("Experiment started")
-logger.info(f"Experiment folder: {exp_dir}")
+logger.info("Experiment folder: %s", exp_dir)
 
 # (n_samples, traj_len, 2)
 data_3d = generate_sine_cosine_trajectories_3d(
@@ -81,10 +82,9 @@ train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # Log dataset sizes
-logger.info(f"Total sequences: {X.shape[0]}")
-logger.info(f"Train sequences: {X_train_tensor.shape}")
-logger.info(f"Test sequences: {X_test_tensor.shape}")
-
+logger.info("Total sequences: %d", X.shape[0])
+logger.info("Train sequences: %s", X_train_tensor.shape)
+logger.info("Test sequences: %s", X_test_tensor.shape)
 
 # Train Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -99,8 +99,8 @@ criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
 # Log model info
-logger.info(f"Model module: {model.__class__.__module__}")
-logger.info(f"Model architecture:\n{model}")
+logger.info("Model module: %s", model.__class__.__module__)
+logger.info("Model architecture:\n%s", model)
 
 # Log time taken for training
 start_time = time.time()
@@ -121,11 +121,11 @@ for epoch in range(EPOCHS):
     avg_train_loss = total_loss / len(train_loader)
 
     # Log per-epoch training metrics
-    logger.info(f"Epoch {epoch + 1}/{EPOCHS} - Train Loss: {avg_train_loss:.6f}")
+    logger.info("Epoch %d/%d - Train Loss: %.6f", epoch + 1, EPOCHS, avg_train_loss)
 
 end_time = time.time()
 elapsed_time = end_time - start_time
-logger.info(f"Total training time: {elapsed_time:.2f} seconds")
+logger.info("Total training time: %.2f seconds", elapsed_time)
 
 # Evaluate Model
 model.eval()
@@ -140,7 +140,7 @@ with torch.no_grad():
 avg_test_loss = test_loss / len(test_loader)
 
 # Log final test metrics
-logger.info(f"Test Loss: {avg_test_loss:.6f}")
+logger.info("Test Loss: %.6f", avg_test_loss)
 
 # Save trained model
 torch.save(model.state_dict(), os.path.join(exp_dir, "model.pt"))
@@ -164,10 +164,9 @@ config = {
     "NUM_PLOTS": NUM_PLOTS,
 }
 
-config_path = os.path.join(exp_dir, "config.txt")
-with open(config_path, "w") as f:
-    for k, v in config.items():
-        f.write(f"{k}: {v}\n")
+config_path = os.path.join(exp_dir, "config.json")
+with open(config_path, "w", encoding="utf-8") as f:
+    json.dump(config, f, indent=4)
 
 logger.info("Config saved")
 
