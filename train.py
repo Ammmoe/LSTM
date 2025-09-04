@@ -30,7 +30,7 @@ from data.trajectory_loader import load_quadcopter_trajectories
 
 # pylint: disable=all
 # Settings
-DATA_TYPE = "quadcopter"  # "artificial" or "quadcopter"
+DATA_TYPE = "artificial"  # "artificial" or "quadcopter"
 
 # Data parameters
 LOOK_BACK = 50  # past frames
@@ -42,12 +42,12 @@ N_SAMPLES = 0
 data_3d = None
 
 # Training parameters
-EPOCHS = 2
+EPOCHS = 5
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 
 # Plotting parameters
-NUM_PLOTS = 1
+NUM_PLOTS = 6
 
 # Setup logger and experiment folder
 logger, exp_dir = get_logger()
@@ -101,7 +101,7 @@ y_train_scaled = scaler.transform(y_train.reshape(-1, 3)).reshape(y_train.shape)
 y_test_scaled = scaler.transform(y_test.reshape(-1, 3)).reshape(y_test.shape)
 
 # Convert to tensors
-X_train_tensor = torch.tensor(X_train_scaled, dtype=torch.float32)
+X_train_tensor = torch.tensor(X_train_scaled, dtype=torch.float32) # shape (num_samples, LOOK_BACK, 3)
 X_test_tensor = torch.tensor(X_test_scaled, dtype=torch.float32)
 y_train_tensor = torch.tensor(y_train_scaled, dtype=torch.float32)
 y_test_tensor = torch.tensor(y_test_scaled, dtype=torch.float32)
@@ -133,7 +133,7 @@ logger.info("Model module: %s", model.__class__.__module__)
 logger.info("Model architecture:\n%s", model)
 
 # Log time taken for training
-start_time = time.time()
+training_start_time = time.time()
 
 model.train()
 for epoch in range(EPOCHS):
@@ -153,24 +153,35 @@ for epoch in range(EPOCHS):
     # Log per-epoch training metrics
     logger.info("Epoch %d/%d - Train Loss: %.6f", epoch + 1, EPOCHS, avg_train_loss)
 
-end_time = time.time()
-elapsed_time = end_time - start_time
+training_end_time = time.time()
+elapsed_time = training_end_time - training_start_time
 logger.info("Total training time: %.2f seconds", elapsed_time)
 
 # Evaluate Model
 model.eval()
 test_loss = 0
+inference_times = []
 with torch.no_grad():
     for batch_x, batch_y in test_loader:
         batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+        
+        start_inf = time.time()
         outputs = model(batch_x, future_len=FORWARD_LEN)
+        end_inf = time.time()
+        
+        # Record inference time per batch
+        inference_times.append(end_inf - start_inf)
+        
         loss = criterion(outputs, batch_y)
         test_loss += loss.item()
 
 avg_test_loss = test_loss / len(test_loader)
+total_inf_time = sum(inference_times)
+avg_inf_time_per_sequence = total_inf_time / len(X_test_tensor)
 
 # Log final test metrics
 logger.info("Test Loss: %.6f", avg_test_loss)
+logger.info("Average inference time per sequence: %.6f seconds", avg_inf_time_per_sequence)
 
 # Save trained model
 torch.save(model.state_dict(), os.path.join(exp_dir, "model.pt"))
@@ -197,6 +208,9 @@ with open(config_path, "w", encoding="utf-8") as f:
     json.dump(config, f, indent=4)
 
 logger.info("Config saved")
+
+# Make sure NUM_PLOTS does not exceed available test samples
+NUM_PLOTS = min(NUM_PLOTS, len(X_test_tensor))
 
 # Visualize prediction for three random test sequences
 random_test_indices = np.random.choice(len(X_test_tensor), NUM_PLOTS, replace=False)

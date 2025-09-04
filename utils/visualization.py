@@ -6,6 +6,7 @@ with random amplitude, frequency and optional noise.
 """
 
 from typing import cast, List, Tuple
+import math
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
@@ -100,7 +101,7 @@ def plot_3d_trajectories_subplots(
     labels: List[str] | None = None,
     colors: List[str] | None = None,
     title: str = "3D Trajectory Predictions (Random Examples)",
-    figsize: Tuple[int, int] = (15, 5),
+    figsize: Tuple[int, int] = (15, 10),
     save_path: str | None = None,
 ) -> None:
     """
@@ -116,9 +117,11 @@ def plot_3d_trajectories_subplots(
     """
     num_plots = len(trajectory_sets)
     fig = plt.figure(figsize=figsize)
+    cols = math.ceil(math.sqrt(num_plots))
+    rows = math.ceil(num_plots / cols)
 
     for i, (past, true_line, pred_line) in enumerate(trajectory_sets, 1):
-        ax = cast(Axes3D, fig.add_subplot(1, num_plots, i, projection="3d"))
+        ax = cast(Axes3D, fig.add_subplot(rows, cols, i, projection="3d"))
         past_color = colors[0] if colors else "b"
         true_color = colors[1] if colors else "g"
         pred_color = colors[2] if colors else "r"
@@ -162,7 +165,7 @@ def plot_3d_geo_trajectories(
     labels: List[str] | None = None,
     colors: List[str] | None = None,
     title: str = "3D Trajectory Predictions (Lat/Lon/Alt)",
-    figsize: Tuple[int, int] = (15, 5),
+    figsize: Tuple[int, int] = (15, 10),
     lat_grid: float = 0.005,
     lon_grid: float = 0.005,
     alt_grid: float = 1.0,
