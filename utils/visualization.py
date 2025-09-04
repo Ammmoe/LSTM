@@ -10,6 +10,7 @@ import math
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.ticker import MaxNLocator
 
 
 def plot_2d_trajectory(
@@ -177,18 +178,32 @@ def plot_3d_geo_trajectories(
     """
     num_plots = len(trajectory_sets)
     fig = plt.figure(figsize=figsize)
+    cols = math.ceil(math.sqrt(num_plots))
+    rows = math.ceil(num_plots / cols)
 
     for i, (past, true_line, pred_line) in enumerate(trajectory_sets, 1):
-        ax = cast(Axes3D, fig.add_subplot(1, num_plots, i, projection="3d"))
+        ax = cast(Axes3D, fig.add_subplot(rows, cols, i, projection="3d"))
 
         # Colors and labels
-        past_color, true_color, pred_color = (colors or ["b", "g", "r"])
-        past_label, true_label, pred_label = (labels or ["Past", "True", "Predicted"])
+        past_color, true_color, pred_color = colors or ["b", "g", "r"]
+        past_label, true_label, pred_label = labels or ["Past", "True", "Predicted"]
 
         # Plot lines
-        ax.plot(past[:,0], past[:,1], past[:,2], f"{past_color}.-", label=past_label)
-        ax.plot(true_line[:,0], true_line[:,1], true_line[:,2], f"{true_color}.-", label=true_label)
-        ax.plot(pred_line[:,0], pred_line[:,1], pred_line[:,2], f"{pred_color}.-", label=pred_label)
+        ax.plot(past[:, 0], past[:, 1], past[:, 2], f"{past_color}.-", label=past_label)
+        ax.plot(
+            true_line[:, 0],
+            true_line[:, 1],
+            true_line[:, 2],
+            f"{true_color}.-",
+            label=true_label,
+        )
+        ax.plot(
+            pred_line[:, 0],
+            pred_line[:, 1],
+            pred_line[:, 2],
+            f"{pred_color}.-",
+            label=pred_label,
+        )
 
         # Axis labels
         ax.set_xlabel("Latitude / degree")
@@ -198,13 +213,16 @@ def plot_3d_geo_trajectories(
         ax.legend()
 
         # Compute limits
-        lat_min = min(past[:,0].min(), true_line[:,0].min(), pred_line[:,0].min())
-        lat_max = max(past[:,0].max(), true_line[:,0].max(), pred_line[:,0].max())
-        lon_min = min(past[:,1].min(), true_line[:,1].min(), pred_line[:,1].min())
-        lon_max = max(past[:,1].max(), true_line[:,1].max(), pred_line[:,1].max())
-        alt_min = float(min(past[:,2].min(), true_line[:,2].min(), pred_line[:,2].min()))
-        alt_max = float(max(past[:,2].max(), true_line[:,2].max(), pred_line[:,2].max()))
-
+        lat_min = min(past[:, 0].min(), true_line[:, 0].min(), pred_line[:, 0].min())
+        lat_max = max(past[:, 0].max(), true_line[:, 0].max(), pred_line[:, 0].max())
+        lon_min = min(past[:, 1].min(), true_line[:, 1].min(), pred_line[:, 1].min())
+        lon_max = max(past[:, 1].max(), true_line[:, 1].max(), pred_line[:, 1].max())
+        alt_min = float(
+            min(past[:, 2].min(), true_line[:, 2].min(), pred_line[:, 2].min())
+        )
+        alt_max = float(
+            max(past[:, 2].max(), true_line[:, 2].max(), pred_line[:, 2].max())
+        )
 
         # Set axis limits
         ax.set_xlim(lat_min - lat_grid, lat_max + lat_grid)
@@ -215,6 +233,11 @@ def plot_3d_geo_trajectories(
         ax.set_xticks(np.arange(lat_min, lat_max + lat_grid, lat_grid))
         ax.set_yticks(np.arange(lon_min, lon_max + lon_grid, lon_grid))
         ax.zaxis.set_ticks(np.arange(alt_min, alt_max + alt_grid, alt_grid))
+
+        # Limit number of ticks to avoid clutter
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=10))  # max 10 ticks
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=10))
+        ax.zaxis.set_major_locator(MaxNLocator(nbins=10))
 
     plt.suptitle(title)
     plt.tight_layout()

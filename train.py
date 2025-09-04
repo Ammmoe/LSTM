@@ -23,26 +23,27 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader, TensorDataset
 from data.artificial_trajectory_generator import generate_sine_cosine_trajectories_3d
-from models.rnn_predictor import TrajPredictor
+from models.gru_predictor import TrajPredictor
 from utils.logger import get_logger
-from utils.visualization import plot_3d_trajectories_subplots, plot_3d_geo_trajectories
-from data.trajectory_loader import load_quadcopter_trajectories
+from utils.visualization import plot_3d_trajectories_subplots
+from utils.model_evaluator import evaluate_metrics
+from data.trajectory_loader import load_quadcopter_trajectories_in_meters
 
 # pylint: disable=all
 # Settings
-DATA_TYPE = "artificial"  # "artificial" or "quadcopter"
+DATA_TYPE = "quadcopter"  # "artificial" or "quadcopter"
 
 # Data parameters
 LOOK_BACK = 50  # past frames
 FORWARD_LEN = 10  # future frames
-FEATURES = 3 # x, y, z
+FEATURES = 3  # x, y, z
 
 # Initialize variables
 N_SAMPLES = 0
 data_3d = None
 
 # Training parameters
-EPOCHS = 5
+EPOCHS = 15
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 
@@ -60,9 +61,11 @@ logger.info("Experiment folder: %s", exp_dir)
 
 if DATA_TYPE == "quadcopter":
     logger.info("Using quadcopter trajectory data")
-    
+
     # Load trajectories
-    data_3d, N_SAMPLES = load_quadcopter_trajectories("data/quadcopter_flights.csv")
+    data_3d, N_SAMPLES = load_quadcopter_trajectories_in_meters(
+        "data/quadcopter_flights.csv"
+    )
 
 else:
     logger.info("Using artificial sine/cosine trajectory data")
@@ -83,14 +86,18 @@ for trajectory in data_3d:
     for i in range(len(trajectory) - LOOK_BACK - FORWARD_LEN + 1):
         X.append(trajectory[i : i + LOOK_BACK])
         y.append(trajectory[i + LOOK_BACK : i + LOOK_BACK + FORWARD_LEN])
-        
-X = np.array(X, dtype=np.float32)
-y = np.array(y, dtype=np.float32)
+
+X = np.array(X, dtype=np.float32)  # shape (num_sequences, LOOK_BACK, 3)
+y = np.array(y, dtype=np.float32)  # shape (num_sequences, FORWARD_LEN, 3)
 
 # Split sequences into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, shuffle=True
 )
+
+# Before scaling
+print("X_train min/max per axis:", X_train.min(axis=(0, 1)), X_train.max(axis=(0, 1)))
+print("y_train min/max per axis:", y_train.min(axis=(0, 1)), y_train.max(axis=(0, 1)))
 
 # Scale data to [0, 1]
 scaler = MinMaxScaler(feature_range=(0, 1))
@@ -101,14 +108,20 @@ y_train_scaled = scaler.transform(y_train.reshape(-1, 3)).reshape(y_train.shape)
 y_test_scaled = scaler.transform(y_test.reshape(-1, 3)).reshape(y_test.shape)
 
 # Convert to tensors
-X_train_tensor = torch.tensor(X_train_scaled, dtype=torch.float32) # shape (num_samples, LOOK_BACK, 3)
+X_train_tensor = torch.tensor(
+    X_train_scaled, dtype=torch.float32
+)  # shape (num_samples, LOOK_BACK, 3)
 X_test_tensor = torch.tensor(X_test_scaled, dtype=torch.float32)
 y_train_tensor = torch.tensor(y_train_scaled, dtype=torch.float32)
 y_test_tensor = torch.tensor(y_test_scaled, dtype=torch.float32)
 
 # Now create DataLoaders
-train_loader = DataLoader(TensorDataset(X_train_tensor, y_train_tensor), batch_size=BATCH_SIZE, shuffle=True)
-test_loader = DataLoader(TensorDataset(X_test_tensor, y_test_tensor), batch_size=BATCH_SIZE, shuffle=False)
+train_loader = DataLoader(
+    TensorDataset(X_train_tensor, y_train_tensor), batch_size=BATCH_SIZE, shuffle=True
+)
+test_loader = DataLoader(
+    TensorDataset(X_test_tensor, y_test_tensor), batch_size=BATCH_SIZE, shuffle=False
+)
 
 # Log dataset sizes
 total_sequences = X_train_tensor.shape[0] + X_test_tensor.shape[0]
@@ -120,9 +133,9 @@ logger.info("Test sequences: %s", X_test_tensor.shape)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_params = {
     "input_size": 3,
-    "hidden_size": 128,
+    "hidden_size": 64,
     "output_size": 3,
-    "num_layers": 1,
+    "num_layers": 2,
 }
 model = TrajPredictor(**model_params).to(device)
 criterion = nn.MSELoss()
@@ -151,8 +164,9 @@ for epoch in range(EPOCHS):
     avg_train_loss = total_loss / len(train_loader)
 
     # Log per-epoch training metrics
-    logger.info("Epoch %d/%d - Train Loss: %.6f", epoch + 1, EPOCHS, avg_train_loss)
+    logger.info("Epoch %d/%d - Train Loss: %.7f", epoch + 1, EPOCHS, avg_train_loss)
 
+# Log total training time
 training_end_time = time.time()
 elapsed_time = training_end_time - training_start_time
 logger.info("Total training time: %.2f seconds", elapsed_time)
@@ -161,27 +175,50 @@ logger.info("Total training time: %.2f seconds", elapsed_time)
 model.eval()
 test_loss = 0
 inference_times = []
+all_preds = []
+all_trues = []
+
 with torch.no_grad():
     for batch_x, batch_y in test_loader:
         batch_x, batch_y = batch_x.to(device), batch_y.to(device)
-        
+
         start_inf = time.time()
         outputs = model(batch_x, future_len=FORWARD_LEN)
         end_inf = time.time()
-        
+
         # Record inference time per batch
         inference_times.append(end_inf - start_inf)
-        
+
+        # Compute loss
         loss = criterion(outputs, batch_y)
         test_loss += loss.item()
 
+        # Collect predictions and ground truth
+        all_preds.append(outputs.cpu())
+        all_trues.append(batch_y.cpu())
+
+# Compute average test loss and average inference time per sequence
 avg_test_loss = test_loss / len(test_loader)
 total_inf_time = sum(inference_times)
 avg_inf_time_per_sequence = total_inf_time / len(X_test_tensor)
 
 # Log final test metrics
-logger.info("Test Loss: %.6f", avg_test_loss)
-logger.info("Average inference time per sequence: %.6f seconds", avg_inf_time_per_sequence)
+logger.info("Test Loss (scaled): %.6f", avg_test_loss)
+logger.info(
+    "Average inference time per sequence: %.6f seconds", avg_inf_time_per_sequence
+)
+
+# Concatenate all batches
+y_pred = torch.cat(all_preds, dim=0)
+y_true = torch.cat(all_trues, dim=0)
+
+# Compute evaluation metrics (inverse scaling applied)
+mse, rmse, mae = evaluate_metrics(y_true, y_pred, scaler)
+
+# Log all metrics
+logger.info("Test MSE: %.6f meters^2", mse)
+logger.info("Test RMSE: %.6f meters", rmse)
+logger.info("Test MAE: %.6f meters", mae)
 
 # Save trained model
 torch.save(model.state_dict(), os.path.join(exp_dir, "model.pt"))
@@ -225,7 +262,10 @@ for idx in random_test_indices:
 
     past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
     pred_future = pred_future[0]  # shape (FORWARD_LEN, 3)
-    
+
+    print("pred_future min/max:", pred_future.min(), pred_future.max())
+    print("true_future min/max:", true_future.min(), true_future.max())
+
     # Inverse transform to original scale
     past_orig = scaler.inverse_transform(past)
     true_future_orig = scaler.inverse_transform(true_future)
@@ -239,8 +279,4 @@ for idx in random_test_indices:
 
 # Plot actual vs predicted test trajectory
 plot_path = os.path.join(exp_dir, "trajectory_plot.png")
-
-if DATA_TYPE == "quadcopter":
-    plot_3d_geo_trajectories(trajectory_sets, save_path=plot_path)
-else:
-    plot_3d_trajectories_subplots(trajectory_sets, save_path=plot_path)
+plot_3d_trajectories_subplots(trajectory_sets, save_path=plot_path)
