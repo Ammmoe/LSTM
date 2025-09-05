@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from data.artificial_trajectory_generator import generate_sine_cosine_trajectories_3d
 from models.gru_predictor import TrajPredictor
 from utils.logger import get_logger
-from utils.visualization import plot_3d_trajectories_subplots
+from utils.plot_generator import plot_3d_trajectories_subplots
 from utils.model_evaluator import evaluate_metrics
 from data.trajectory_loader import load_quadcopter_trajectories_in_meters
 
@@ -43,7 +43,7 @@ N_SAMPLES = 0
 data_3d = None
 
 # Training parameters
-EPOCHS = 15
+EPOCHS = 10
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 
@@ -95,17 +95,19 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, shuffle=True
 )
 
-# Before scaling
-print("X_train min/max per axis:", X_train.min(axis=(0, 1)), X_train.max(axis=(0, 1)))
-print("y_train min/max per axis:", y_train.min(axis=(0, 1)), y_train.max(axis=(0, 1)))
-
 # Scale data to [0, 1]
-scaler = MinMaxScaler(feature_range=(0, 1))
-X_train_scaled = scaler.fit_transform(X_train.reshape(-1, 3)).reshape(X_train.shape)
-X_test_scaled = scaler.transform(X_test.reshape(-1, 3)).reshape(X_test.shape)
+scaler_X = MinMaxScaler(feature_range=(0, 1))
+scaler_y = MinMaxScaler(feature_range=(0, 1))
 
-y_train_scaled = scaler.transform(y_train.reshape(-1, 3)).reshape(y_train.shape)
-y_test_scaled = scaler.transform(y_test.reshape(-1, 3)).reshape(y_test.shape)
+# Fit on TRAIN ONLY (flatten sequences)
+scaler_X.fit(X_train.reshape(-1, 3))
+scaler_y.fit(y_train.reshape(-1, 3))
+
+X_train_scaled = scaler_X.transform(X_train.reshape(-1, 3)).reshape(X_train.shape)
+X_test_scaled = scaler_X.transform(X_test.reshape(-1, 3)).reshape(X_test.shape)
+
+y_train_scaled = scaler_y.transform(y_train.reshape(-1, 3)).reshape(y_train.shape)
+y_test_scaled = scaler_y.transform(y_test.reshape(-1, 3)).reshape(y_test.shape)
 
 # Convert to tensors
 X_train_tensor = torch.tensor(
@@ -213,7 +215,7 @@ y_pred = torch.cat(all_preds, dim=0)
 y_true = torch.cat(all_trues, dim=0)
 
 # Compute evaluation metrics (inverse scaling applied)
-mse, rmse, mae = evaluate_metrics(y_true, y_pred, scaler)
+mse, rmse, mae = evaluate_metrics(y_true, y_pred, scaler_y)
 
 # Log all metrics
 logger.info("Test MSE: %.6f meters^2", mse)
@@ -263,13 +265,10 @@ for idx in random_test_indices:
     past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
     pred_future = pred_future[0]  # shape (FORWARD_LEN, 3)
 
-    print("pred_future min/max:", pred_future.min(), pred_future.max())
-    print("true_future min/max:", true_future.min(), true_future.max())
-
     # Inverse transform to original scale
-    past_orig = scaler.inverse_transform(past)
-    true_future_orig = scaler.inverse_transform(true_future)
-    pred_future_orig = scaler.inverse_transform(pred_future)
+    past_orig = scaler_X.inverse_transform(past)
+    true_future_orig = scaler_y.inverse_transform(true_future)
+    pred_future_orig = scaler_y.inverse_transform(pred_future)
 
     # Concatenate last past point with future to make continuous lines
     true_line = np.vstack([past_orig[-1:], true_future_orig])
