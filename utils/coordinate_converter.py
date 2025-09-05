@@ -47,3 +47,4 @@ def latlon_to_meters(lat, lon, ref_lat=0.0, ref_lon=0.0):
     x = R * (lon_rad - ref_lon_rad) * np.cos(ref_lat_rad)
     y = R * (lat_rad - ref_lat_rad)
     return x, y
+

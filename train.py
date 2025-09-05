@@ -27,11 +27,14 @@ from models.gru_predictor import TrajPredictor
 from utils.logger import get_logger
 from utils.plot_generator import plot_3d_trajectories_subplots
 from utils.model_evaluator import evaluate_metrics
-from data.trajectory_loader import load_quadcopter_trajectories_in_meters
+from data.trajectory_loader import (
+    load_quadcopter_trajectories_in_meters,
+    load_zurich_single_utm_trajectory,
+)
 
 # pylint: disable=all
 # Settings
-DATA_TYPE = "quadcopter"  # "artificial" or "quadcopter"
+DATA_TYPE = "zurich"  # "artificial" or "quadcopter" or "zurich"
 
 # Data parameters
 LOOK_BACK = 50  # past frames
@@ -43,7 +46,7 @@ N_SAMPLES = 0
 data_3d = None
 
 # Training parameters
-EPOCHS = 10
+EPOCHS = 100
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 
@@ -66,6 +69,13 @@ if DATA_TYPE == "quadcopter":
     data_3d, N_SAMPLES = load_quadcopter_trajectories_in_meters(
         "data/quadcopter_flights.csv"
     )
+
+elif DATA_TYPE == "zurich":
+    logger.info("Using Zurich flight dataset")
+
+    # Load trajectories
+    data_3d, N_SAMPLES = load_zurich_single_utm_trajectory("data/zurich_flights.csv")
+    print("Loaded Zurich dataset with %d samples" % N_SAMPLES)
 
 else:
     logger.info("Using artificial sine/cosine trajectory data")

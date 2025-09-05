@@ -56,3 +56,32 @@ def load_quadcopter_trajectories_in_meters(csv_path: str):
         trajectories.append(traj_meters)
 
     return trajectories, n_samples
+
+
+def load_zurich_single_utm_trajectory(csv_path: str):
+    """
+    Load a single 3D trajectory (in UTM meters) from CSV.
+    Converts absolute UTM coordinates to relative coordinates with respect
+    to the first point, so the trajectory starts at (0,0,0).
+
+    Args:
+        csv_path (str): Must contain ['x_gt', 'y_gt', 'z_gt']
+
+    Returns:
+        trajectory (np.ndarray): Array of shape (traj_len, 3) in meters
+        n_samples (int): Always 1, since this dataset has only one trajectory
+    """
+    df = pd.read_csv(csv_path)
+    df.columns = df.columns.str.strip()  # remove leading/trailing whitespace
+    df = df[["x_gt", "y_gt", "z_gt"]]
+
+    # Use the first row as reference
+    ref_x, ref_y, ref_z = df.iloc[0]
+
+    x_rel = df["x_gt"].values - ref_x
+    y_rel = df["y_gt"].values - ref_y
+    z_rel = df["z_gt"].values - ref_z
+
+    trajectory = np.stack([x_rel, y_rel, z_rel], axis=1)
+
+    return [trajectory], 1
