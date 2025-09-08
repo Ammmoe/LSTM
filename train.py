@@ -261,8 +261,12 @@ logger.info("Config saved")
 # Make sure NUM_PLOTS does not exceed available test samples
 NUM_PLOTS = min(NUM_PLOTS, len(X_test_tensor))
 
+# Select evenly spaced indices from test set for non-overlapping sequences
+step = LOOK_BACK + FORWARD_LEN
+indices = np.arange(0, len(X_test_tensor), step)
+
 # Visualize prediction for three random test sequences
-random_test_indices = np.random.choice(len(X_test_tensor), NUM_PLOTS, replace=False)
+random_test_indices = np.random.choice(indices, NUM_PLOTS, replace=False)
 
 trajectory_sets = []
 for idx in random_test_indices:
