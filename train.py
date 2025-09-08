@@ -279,6 +279,11 @@ for idx in random_test_indices:
     past_orig = scaler_X.inverse_transform(past)
     true_future_orig = scaler_y.inverse_transform(true_future)
     pred_future_orig = scaler_y.inverse_transform(pred_future)
+    
+    print(f"Index {idx}:")
+    print("Past min/max:\t", past_orig.min(), past_orig.max())
+    print("True future min/max:\t", true_future_orig.min(), true_future_orig.max())
+    print("Pred min/max:\t", pred_future_orig.min(), pred_future_orig.max())
 
     # Concatenate last past point with future to make continuous lines
     true_line = np.vstack([past_orig[-1:], true_future_orig])
