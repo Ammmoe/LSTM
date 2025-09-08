@@ -74,7 +74,7 @@ elif DATA_TYPE == "zurich":
     logger.info("Using Zurich flight dataset")
 
     # Load trajectories
-    data_3d, N_SAMPLES = load_zurich_single_utm_trajectory("data/zurich_flights.csv")
+    data_3d, N_SAMPLES = load_zurich_single_utm_trajectory("data/zurich_flights_downsampled_2.csv")
     print("Loaded Zurich dataset with %d samples" % N_SAMPLES)
 
 else:

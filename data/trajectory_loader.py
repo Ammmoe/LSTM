@@ -60,12 +60,12 @@ def load_quadcopter_trajectories_in_meters(csv_path: str):
 
 def load_zurich_single_utm_trajectory(csv_path: str):
     """
-    Load a single 3D trajectory (in UTM meters) from CSV.
-    Converts absolute UTM coordinates to relative coordinates with respect
-    to the first point, so the trajectory starts at (0,0,0).
+    Load a single 3D trajectory from CSV with ['lat', 'lon', 'alt'] columns.
+    Converts lat/lon to relative meters using latlon_to_meters,
+    and shifts altitude so that the trajectory starts at z=0.
 
     Args:
-        csv_path (str): Must contain ['x_gt', 'y_gt', 'z_gt']
+        csv_path (str): Must contain ['lat', 'lon', 'alt']
 
     Returns:
         trajectory (np.ndarray): Array of shape (traj_len, 3) in meters
@@ -73,15 +73,24 @@ def load_zurich_single_utm_trajectory(csv_path: str):
     """
     df = pd.read_csv(csv_path)
     df.columns = df.columns.str.strip()  # remove leading/trailing whitespace
-    df = df[["x_gt", "y_gt", "z_gt"]]
+    df = df[["lat", "lon", "alt"]]
 
     # Use the first row as reference
-    ref_x, ref_y, ref_z = df.iloc[0]
+    ref_lat = df["lat"].iloc[0]
+    ref_lon = df["lon"].iloc[0]
+    ref_alt = df["alt"].iloc[0]
 
-    x_rel = df["x_gt"].values - ref_x
-    y_rel = df["y_gt"].values - ref_y
-    z_rel = df["z_gt"].values - ref_z
+    # Convert lat/lon → meters relative to first point
+    x, y = latlon_to_meters(
+        df["lat"].values,
+        df["lon"].values,
+        ref_lat=ref_lat,
+        ref_lon=ref_lon,
+    )
 
-    trajectory = np.stack([x_rel, y_rel, z_rel], axis=1)
+    # Altitude relative to first point
+    z = df["alt"].values - ref_alt
+
+    trajectory = np.stack([x, y, z], axis=1)
 
     return [trajectory], 1
