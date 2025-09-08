@@ -39,7 +39,6 @@ DATA_TYPE = "zurich"  # "artificial" or "quadcopter" or "zurich"
 # Data parameters
 LOOK_BACK = 50  # past frames
 FORWARD_LEN = 10  # future frames
-FEATURES = 3  # x, y, z
 
 # Initialize variables
 N_SAMPLES = 0
@@ -144,7 +143,7 @@ logger.info("Test sequences: %s", X_test_tensor.shape)
 # Train Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_params = {
-    "input_size": 3,
+    "input_size": 3, # x, y, z
     "hidden_size": 64,
     "output_size": 3,
     "num_layers": 2,
@@ -244,7 +243,6 @@ config = {
     "model_params": model_params,
     "LOOK_BACK": LOOK_BACK,
     "FORWARD_LEN": FORWARD_LEN,
-    "FEATURES": FEATURES,
     "EPOCHS": EPOCHS,
     "BATCH_SIZE": BATCH_SIZE,
     "LEARNING_RATE": LEARNING_RATE,

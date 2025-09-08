@@ -1,5 +1,5 @@
 """
-this script downsamples a CSV file by taking every 3rd row and 
+this script downsamples a CSV file by taking every 3rd row and
 saves the result to a new CSV file.
 """
 
@@ -18,28 +18,29 @@ df = pd.read_csv("zurich_flights.csv")
 # print("Downsampled data saved as zurich_flights_downsampled.csv")
 
 # Convert timestamp from µs to seconds
-df["time_s"] = df["Timpstemp"] / 1e6
+df["time_s"] = df["Timpstemp"].astype(np.float64) / 1e6
 
 # Build target times (0.1s intervals from start to end)
-start_time = df["time_s"].iloc[0]
-end_time = df["time_s"].iloc[-1]
-target_times = np.arange(start_time, end_time, 0.1)
+start_time = float(df["time_s"].iloc[0])
+end_time = float(df["time_s"].iloc[-1])
+target_times = np.arange(start_time, end_time, 0.1, dtype=np.float64)
 
-# For each target time, pick the closest row
-selected_rows = []
-i = 0  # pointer for raw data
-n = len(df)
+# Ensure numpy array is float64
+time_array = df["time_s"].to_numpy(dtype=np.float64)
 
-for t in target_times:
-    # Move pointer forward until we pass target time
-    while i < n - 1 and abs(df["time_s"].iloc[i+1] - t) < abs(df["time_s"].iloc[i] - t):
-        i += 1
-    selected_rows.append(df.iloc[i])
+# Use searchsorted
+indices = np.searchsorted(time_array, target_times)
 
-# Create downsampled DataFrame
-df_downsampled = pd.DataFrame(selected_rows).reset_index(drop=True)
+# Correct indices if previous row is closer
+for j, idx in enumerate(indices):
+    if idx > 0 and abs(time_array[idx] - target_times[j]) > abs(
+        time_array[idx - 1] - target_times[j]
+    ):
+        indices[j] = idx - 1
 
-# Save to CSV
+# Select rows
+df_downsampled = df.iloc[indices].reset_index(drop=True)
+
+# Save CSV
 df_downsampled.to_csv("zurich_flights_downsampled_2.csv", index=False)
-
-print(f"Downsampled data saved as zurich_flights_downsampled_2.csv with {len(df_downsampled)} rows")
+print(f"Downsampled data saved with {len(df_downsampled)} rows")
