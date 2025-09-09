@@ -163,7 +163,7 @@ logger.info("Model architecture:\n%s", model)
 training_start_time = time.time()
 
 # Early stopping parameters
-patience = 20
+patience = 15
 best_loss = float("inf")
 epochs_no_improve = 0
 early_stop = False

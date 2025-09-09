@@ -281,7 +281,7 @@ def plot_3d_pred_vs_true(
         true_coords[:, 2],
         color='k',        # black
         linestyle='--',   # dashed
-        linewidth=1.5,   # thinner line
+        linewidth=0.7,   # thinner line
         label=labels[0],
     )
     ax.plot(
@@ -289,7 +289,7 @@ def plot_3d_pred_vs_true(
         pred_coords[:, 1],
         pred_coords[:, 2],
         color=colors[0],
-        linewidth=1.5,   # thinner line
+        linewidth=0.7,   # thinner line
         label=labels[1],
     )
 
