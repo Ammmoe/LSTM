@@ -26,8 +26,7 @@ class TrajPredictor(nn.Module):
 
     def __init__(self, input_size=3, hidden_size=128, output_size=3, num_layers=1):
         super(TrajPredictor, self).__init__()
-        self.encoder = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
-        self.decoder = nn.GRU(output_size, hidden_size, num_layers, batch_first=True)
+        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_size, output_size)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -37,16 +36,12 @@ class TrajPredictor(nn.Module):
 
     def _init_weights(self):
         # Initialize GRU weights
-        for name, param in self.encoder.named_parameters():
+        for name, param in self.gru.named_parameters():
             if "weight" in name:
                 nn.init.xavier_uniform_(param)
             elif "bias" in name:
                 nn.init.zeros_(param)
-        for name, param in self.decoder.named_parameters():
-            if "weight" in name:
-                nn.init.xavier_uniform_(param)
-            elif "bias" in name:
-                nn.init.zeros_(param)
+
         # Initialize Linear layer
         nn.init.xavier_uniform_(self.fc.weight)
         nn.init.zeros_(self.fc.bias)
@@ -63,12 +58,12 @@ class TrajPredictor(nn.Module):
             torch.Tensor: Predicted future sequence of shape (batch, future_len, output_size).
         """
         # Encode past trajectory
-        _, h = self.encoder(x)
+        _, h = self.gru(x)
 
-        # Use the last layer's hidden state
-        last_hidden = h[-1]               # (batch, hidden_size)
+        # Squeeze the first dimension to get (batch_size, hidden_size)
+        final_hidden_state = h.squeeze(0)
 
-        # Map to output coordinate
-        output = self.fc(last_hidden)        # (batch, output_size)
-        
+        # Pass the final hidden state through a linear layer to get the single output
+        output = self.fc(final_hidden_state)
+
         return output
