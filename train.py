@@ -73,7 +73,9 @@ elif DATA_TYPE == "zurich":
     logger.info("Using Zurich flight dataset")
 
     # Load trajectories
-    data_3d, N_SAMPLES = load_zurich_single_utm_trajectory("data/zurich_flights_downsampled_2.csv")
+    data_3d, N_SAMPLES = load_zurich_single_utm_trajectory(
+        "data/zurich_flights_downsampled_2.csv"
+    )
     print("Loaded Zurich dataset with %d samples" % N_SAMPLES)
 
 else:
@@ -94,10 +96,10 @@ X, y = [], []
 for trajectory in data_3d:
     for i in range(len(trajectory) - LOOK_BACK - FORWARD_LEN + 1):
         X.append(trajectory[i : i + LOOK_BACK])
-        y.append(trajectory[i + LOOK_BACK : i + LOOK_BACK + FORWARD_LEN])
+        y.append(trajectory[i + LOOK_BACK + FORWARD_LEN])
 
 X = np.array(X, dtype=np.float32)  # shape (num_sequences, LOOK_BACK, 3)
-y = np.array(y, dtype=np.float32)  # shape (num_sequences, FORWARD_LEN, 3)
+y = np.array(y, dtype=np.float32)  # shape (num_sequences, 3)
 
 # Split sequences into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(
@@ -110,13 +112,13 @@ scaler_y = MinMaxScaler(feature_range=(0, 1))
 
 # Fit on TRAIN ONLY (flatten sequences)
 scaler_X.fit(X_train.reshape(-1, 3))
-scaler_y.fit(y_train.reshape(-1, 3))
+scaler_y.fit(y_train)
 
 X_train_scaled = scaler_X.transform(X_train.reshape(-1, 3)).reshape(X_train.shape)
 X_test_scaled = scaler_X.transform(X_test.reshape(-1, 3)).reshape(X_test.shape)
 
-y_train_scaled = scaler_y.transform(y_train.reshape(-1, 3)).reshape(y_train.shape)
-y_test_scaled = scaler_y.transform(y_test.reshape(-1, 3)).reshape(y_test.shape)
+y_train_scaled = scaler_y.transform(y_train)
+y_test_scaled = scaler_y.transform(y_test)
 
 # Convert to tensors
 X_train_tensor = torch.tensor(
@@ -143,7 +145,7 @@ logger.info("Test sequences: %s", X_test_tensor.shape)
 # Train Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_params = {
-    "input_size": 3, # x, y, z
+    "input_size": 3,  # x, y, z
     "hidden_size": 64,
     "output_size": 3,
     "num_layers": 2,
@@ -188,10 +190,13 @@ test_loss = 0
 inference_times = []
 all_preds = []
 all_trues = []
+total_sequences = 0
 
 with torch.no_grad():
     for batch_x, batch_y in test_loader:
         batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+        batch_size = batch_x.size(0)
+        total_sequences += batch_size  # accumulate total sequences
 
         start_inf = time.time()
         outputs = model(batch_x, pred_len=1)
@@ -208,16 +213,24 @@ with torch.no_grad():
         all_preds.append(outputs.cpu())
         all_trues.append(batch_y.cpu())
 
-# Compute average test loss and average inference time per sequence
+# Compute average test loss
 avg_test_loss = test_loss / len(test_loader)
+
+# Calculate total sequences and total inference time
 total_inf_time = sum(inference_times)
-avg_inf_time_per_sequence = total_inf_time / len(X_test_tensor)
+
+# Average inference time per sequence
+avg_inf_time_per_sequence = total_inf_time / total_sequences
+
+# Average inference time per batch
+avg_inf_time_per_batch = total_inf_time / len(test_loader)
 
 # Log final test metrics
 logger.info("Test Loss (scaled): %.6f", avg_test_loss)
 logger.info(
     "Average inference time per sequence: %.6f seconds", avg_inf_time_per_sequence
 )
+logger.info("Average inference time per batch: %.6f seconds", avg_inf_time_per_batch)
 
 # Concatenate all batches
 y_pred = torch.cat(all_preds, dim=0)
@@ -281,7 +294,7 @@ for idx in random_test_indices:
     past_orig = scaler_X.inverse_transform(past)
     true_future_orig = scaler_y.inverse_transform(true_future)
     pred_future_orig = scaler_y.inverse_transform(pred_future)
-    
+
     print(f"Index {idx}:")
     print("Past min/max:\t", past_orig.min(), past_orig.max())
     print("True future min/max:\t", true_future_orig.min(), true_future_orig.max())
