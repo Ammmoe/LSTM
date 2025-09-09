@@ -31,7 +31,7 @@ class TrajPredictor(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
-    def forward(self, x, future_len=10):
+    def forward(self, x, pred_len=1):
         """
         Forward pass through the model.
 
@@ -50,7 +50,7 @@ class TrajPredictor(nn.Module):
         outputs = []
 
         # Autoregressive decoding
-        for _ in range(future_len):
+        for _ in range(pred_len):
             out, h = self.decoder(decoder_input, h)
             pred = self.fc(out)  # (batch, 1, output_size)
             outputs.append(pred)

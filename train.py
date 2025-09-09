@@ -166,7 +166,7 @@ for epoch in range(EPOCHS):
         batch_x, batch_y = batch_x.to(device), batch_y.to(device)
 
         optimizer.zero_grad()
-        predictions = model(batch_x, future_len=FORWARD_LEN)
+        predictions = model(batch_x, pred_len=1)
         loss = criterion(predictions, batch_y)
         loss.backward()
         optimizer.step()
@@ -194,7 +194,7 @@ with torch.no_grad():
         batch_x, batch_y = batch_x.to(device), batch_y.to(device)
 
         start_inf = time.time()
-        outputs = model(batch_x, future_len=FORWARD_LEN)
+        outputs = model(batch_x, pred_len=1)
         end_inf = time.time()
 
         # Record inference time per batch
@@ -272,7 +272,7 @@ for idx in random_test_indices:
     true_future = y_test_tensor[idx].numpy()  # shape (FORWARD_LEN, 3)
 
     with torch.no_grad():
-        pred_future = model(test_input, future_len=FORWARD_LEN).cpu().numpy()
+        pred_future = model(test_input, pred_len=1).cpu().numpy()
 
     past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
     pred_future = pred_future[0]  # shape (FORWARD_LEN, 3)
