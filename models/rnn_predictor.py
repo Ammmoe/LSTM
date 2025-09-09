@@ -30,7 +30,7 @@ class TrajPredictor(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        
+
         # Apply Xavier initialization
         self._init_weights()
 

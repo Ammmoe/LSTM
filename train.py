@@ -175,7 +175,7 @@ for epoch in range(EPOCHS):
         batch_x, batch_y = batch_x.to(device), batch_y.to(device)
 
         optimizer.zero_grad()
-        predictions = model(batch_x, pred_len=1)
+        predictions = model(batch_x)
         loss = criterion(predictions, batch_y)
         loss.backward()
         optimizer.step()
@@ -224,7 +224,7 @@ with torch.no_grad():
         total_sequences += batch_size  # accumulate total sequences
 
         start_inf = time.time()
-        outputs = model(batch_x, pred_len=1)
+        outputs = model(batch_x)
         end_inf = time.time()
 
         # Record inference time per batch

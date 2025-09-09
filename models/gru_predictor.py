@@ -51,7 +51,7 @@ class TrajPredictor(nn.Module):
         nn.init.xavier_uniform_(self.fc.weight)
         nn.init.zeros_(self.fc.bias)
 
-    def forward(self, x, pred_len=1):
+    def forward(self, x):
         """
         Forward pass through the model.
 
@@ -65,20 +65,10 @@ class TrajPredictor(nn.Module):
         # Encode past trajectory
         _, h = self.encoder(x)
 
-        # First decoder input = last input point
-        decoder_input = x[:, -1:, :]  # shape (batch, 1, input_size)
-        outputs = []
+        # Use the last layer's hidden state
+        last_hidden = h[-1]               # (batch, hidden_size)
 
-        # Autoregressive decoding
-        for _ in range(pred_len):
-            out, h = self.decoder(decoder_input, h)
-            pred = self.fc(out)  # (batch, 1, output_size)
-            outputs.append(pred)
-            decoder_input = pred  # feed prediction back
-
-        outputs = torch.cat(outputs, dim=1)  # (batch, future_len, output_size)
-
-        # Return squeezed version if only one step is predicted
-        if pred_len == 1:
-            return outputs.squeeze(1)  # (batch, output_size)
-        return outputs
+        # Map to output coordinate
+        output = self.fc(last_hidden)        # (batch, output_size)
+        
+        return output
