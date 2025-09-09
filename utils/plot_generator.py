@@ -269,7 +269,7 @@ def plot_3d_pred_vs_true(
         figsize (tuple): Figure size.
         save_path (str): If provided, saves the plot to this path.
     """
-    labels = labels or ["True", "Predicted"]
+    labels = labels or ["Actual Trajectory", "GRU"]
     colors = colors or ["r"]
 
     fig = plt.figure(figsize=figsize)
