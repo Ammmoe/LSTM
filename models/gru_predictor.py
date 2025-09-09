@@ -38,7 +38,7 @@ class TrajPredictor(nn.Module):
 
         Args:
             x (torch.Tensor): Input sequence of shape (batch, LOOK_BACK, input_size).
-            future_len (int): Number of future steps to predict.
+            pred_len (int): Number of future steps to predict.
 
         Returns:
             torch.Tensor: Predicted future sequence of shape (batch, future_len, output_size).
@@ -58,4 +58,8 @@ class TrajPredictor(nn.Module):
             decoder_input = pred  # feed prediction back
 
         outputs = torch.cat(outputs, dim=1)  # (batch, future_len, output_size)
+        
+        # Return squeezed version if only one step is predicted
+        if pred_len == 1:
+            return outputs.squeeze(1)  # (batch, output_size)
         return outputs
