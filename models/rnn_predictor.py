@@ -30,6 +30,25 @@ class TrajPredictor(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
+        
+        # Apply Xavier initialization
+        self._init_weights()
+
+    def _init_weights(self):
+        # Initialize GRU weights
+        for name, param in self.encoder.named_parameters():
+            if "weight" in name:
+                nn.init.xavier_uniform_(param)
+            elif "bias" in name:
+                nn.init.zeros_(param)
+        for name, param in self.decoder.named_parameters():
+            if "weight" in name:
+                nn.init.xavier_uniform_(param)
+            elif "bias" in name:
+                nn.init.zeros_(param)
+        # Initialize Linear layer
+        nn.init.xavier_uniform_(self.fc.weight)
+        nn.init.zeros_(self.fc.bias)
 
     def forward(self, x, pred_len=1):
         """

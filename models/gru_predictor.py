@@ -32,6 +32,25 @@ class TrajPredictor(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
+        # Apply Xavier initialization
+        self._init_weights()
+
+    def _init_weights(self):
+        # Initialize GRU weights
+        for name, param in self.encoder.named_parameters():
+            if "weight" in name:
+                nn.init.xavier_uniform_(param)
+            elif "bias" in name:
+                nn.init.zeros_(param)
+        for name, param in self.decoder.named_parameters():
+            if "weight" in name:
+                nn.init.xavier_uniform_(param)
+            elif "bias" in name:
+                nn.init.zeros_(param)
+        # Initialize Linear layer
+        nn.init.xavier_uniform_(self.fc.weight)
+        nn.init.zeros_(self.fc.bias)
+
     def forward(self, x, pred_len=1):
         """
         Forward pass through the model.
@@ -58,7 +77,7 @@ class TrajPredictor(nn.Module):
             decoder_input = pred  # feed prediction back
 
         outputs = torch.cat(outputs, dim=1)  # (batch, future_len, output_size)
-        
+
         # Return squeezed version if only one step is predicted
         if pred_len == 1:
             return outputs.squeeze(1)  # (batch, output_size)
