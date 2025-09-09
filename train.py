@@ -163,7 +163,7 @@ logger.info("Model architecture:\n%s", model)
 training_start_time = time.time()
 
 # Early stopping parameters
-patience = 15
+patience = 20
 best_loss = float("inf")
 epochs_no_improve = 0
 early_stop = False
@@ -203,9 +203,6 @@ for epoch in range(EPOCHS):
 # If training completed without early stopping
 if not early_stop:
     logger.info("Training finished without early stopping.")
-    # Save trained model
-    torch.save(model.state_dict(), os.path.join(exp_dir, "model.pt"))
-    logger.info("Model saved")
 
 # Log total training time
 training_end_time = time.time()
