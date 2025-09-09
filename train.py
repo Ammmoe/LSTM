@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from data.artificial_trajectory_generator import generate_sine_cosine_trajectories_3d
 from models.gru_predictor import TrajPredictor
 from utils.logger import get_logger
-from utils.plot_generator import plot_3d_trajectories_subplots
+from utils.plot_generator import plot_3d_pred_vs_true
 from utils.model_evaluator import evaluate_metrics
 from data.trajectory_loader import (
     load_quadcopter_trajectories_in_meters,
@@ -45,8 +45,8 @@ N_SAMPLES = 0
 data_3d = None
 
 # Training parameters
-EPOCHS = 100
-BATCH_SIZE = 64
+EPOCHS = 500
+BATCH_SIZE = 70
 LEARNING_RATE = 1e-3
 
 # Plotting parameters
@@ -94,16 +94,17 @@ else:
 # Prepare DataLoaders
 X, y = [], []
 for trajectory in data_3d:
-    for i in range(len(trajectory) - LOOK_BACK - FORWARD_LEN + 1):
+    seq_count = len(trajectory) - LOOK_BACK - FORWARD_LEN + 1
+    for i in range(seq_count):
         X.append(trajectory[i : i + LOOK_BACK])
-        y.append(trajectory[i + LOOK_BACK + FORWARD_LEN])
+        y.append(trajectory[i + LOOK_BACK + FORWARD_LEN - 1])
 
 X = np.array(X, dtype=np.float32)  # shape (num_sequences, LOOK_BACK, 3)
 y = np.array(y, dtype=np.float32)  # shape (num_sequences, 3)
 
 # Split sequences into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, shuffle=True
+    X, y, test_size=0.2, random_state=42, shuffle=False
 )
 
 # Scale data to [0, 1]
@@ -161,6 +162,12 @@ logger.info("Model architecture:\n%s", model)
 # Log time taken for training
 training_start_time = time.time()
 
+# Early stopping parameters
+patience = 15
+best_loss = float("inf")
+epochs_no_improve = 0
+early_stop = False
+
 model.train()
 for epoch in range(EPOCHS):
     total_loss = 0
@@ -178,6 +185,27 @@ for epoch in range(EPOCHS):
 
     # Log per-epoch training metrics
     logger.info("Epoch %d/%d - Train Loss: %.7f", epoch + 1, EPOCHS, avg_train_loss)
+    
+    # Check for early stopping
+    if avg_train_loss < best_loss:
+        best_loss = avg_train_loss
+        epochs_no_improve = 0
+        torch.save(model.state_dict(), os.path.join(exp_dir, "best_model.pt"))
+    else:
+        epochs_no_improve += 1
+    
+    # If no improvement for 'patience' epochs, stop training
+    if epochs_no_improve >= patience:
+        logger.info("Early stopping triggered after %d epochs", epoch + 1)
+        early_stop = True
+        break
+
+# If training completed without early stopping
+if not early_stop:
+    logger.info("Training finished without early stopping.")
+    # Save trained model
+    torch.save(model.state_dict(), os.path.join(exp_dir, "model.pt"))
+    logger.info("Model saved")
 
 # Log total training time
 training_end_time = time.time()
@@ -244,10 +272,6 @@ logger.info("Test MSE: %.6f meters^2", mse)
 logger.info("Test RMSE: %.6f meters", rmse)
 logger.info("Test MAE: %.6f meters", mae)
 
-# Save trained model
-torch.save(model.state_dict(), os.path.join(exp_dir, "model.pt"))
-logger.info("Model saved")
-
 # Save config / hyperparameters
 config = {
     "device": str(device),
@@ -269,43 +293,19 @@ with open(config_path, "w", encoding="utf-8") as f:
 
 logger.info("Config saved")
 
-# Make sure NUM_PLOTS does not exceed available test samples
-NUM_PLOTS = min(NUM_PLOTS, len(X_test_tensor))
-
-# Select evenly spaced indices from test set for non-overlapping sequences
-step = LOOK_BACK + FORWARD_LEN
-indices = np.arange(0, len(X_test_tensor), step)
-
-# Visualize prediction for three random test sequences
-random_test_indices = np.random.choice(indices, NUM_PLOTS, replace=False)
-
 trajectory_sets = []
-for idx in random_test_indices:
-    test_input = X_test_tensor[idx : idx + 1].to(device)  # shape (1, LOOK_BACK, 3)
-    true_future = y_test_tensor[idx].numpy()  # shape (FORWARD_LEN, 3)
 
-    with torch.no_grad():
-        pred_future = model(test_input, pred_len=1).cpu().numpy()
+# Prepare data for plotting
+y_pred_np = y_pred.numpy()
+y_true_np = y_true.numpy()
 
-    past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
-    pred_future = pred_future[0]  # shape (FORWARD_LEN, 3)
+# Inverse scales to original coordinates for plotting
+true_future_orig = scaler_y.inverse_transform(y_true_np)
+pred_future_orig = scaler_y.inverse_transform(y_pred_np)
 
-    # Inverse transform to original scale
-    past_orig = scaler_X.inverse_transform(past)
-    true_future_orig = scaler_y.inverse_transform(true_future)
-    pred_future_orig = scaler_y.inverse_transform(pred_future)
-
-    print(f"Index {idx}:")
-    print("Past min/max:\t", past_orig.min(), past_orig.max())
-    print("True future min/max:\t", true_future_orig.min(), true_future_orig.max())
-    print("Pred min/max:\t", pred_future_orig.min(), pred_future_orig.max())
-
-    # Concatenate last past point with future to make continuous lines
-    true_line = np.vstack([past_orig[-1:], true_future_orig])
-    pred_line = np.vstack([past_orig[-1:], pred_future_orig])
-
-    trajectory_sets.append((past_orig, true_line, pred_line))
+# Prepare trajectory set (no past points)
+trajectory_sets = [(true_future_orig, pred_future_orig)]
 
 # Plot actual vs predicted test trajectory
 plot_path = os.path.join(exp_dir, "trajectory_plot.png")
-plot_3d_trajectories_subplots(trajectory_sets, save_path=plot_path)
+plot_3d_pred_vs_true(true_future_orig, pred_future_orig, save_path=plot_path)

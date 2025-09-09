@@ -248,6 +248,67 @@ def plot_3d_geo_trajectories(
     plt.show()
 
 
+def plot_3d_pred_vs_true(
+    true_coords: np.ndarray,
+    pred_coords: np.ndarray,
+    labels: List[str] | None = None,
+    colors: List[str] | None = None,
+    title: str = "3D Trajectory: True vs Predicted",
+    figsize: Tuple[int, int] = (10, 8),
+    save_path: str | None = None,
+) -> None:
+    """
+    Plot a 3D trajectory comparing true vs predicted coordinates.
+
+    Args:
+        true_coords (np.ndarray): Array of shape (num_points, 3) with true coordinates.
+        pred_coords (np.ndarray): Array of shape (num_points, 3) with predicted coordinates.
+        labels (list): Labels for the lines (default ["True", "Predicted"]).
+        colors (list): Colors for the lines (default ["g", "r"]).
+        title (str): Plot title.
+        figsize (tuple): Figure size.
+        save_path (str): If provided, saves the plot to this path.
+    """
+    labels = labels or ["True", "Predicted"]
+    colors = colors or ["r"]
+
+    fig = plt.figure(figsize=figsize)
+    ax = cast(Axes3D, fig.add_subplot(111, projection="3d"))
+
+    ax.plot(
+        true_coords[:, 0],
+        true_coords[:, 1],
+        true_coords[:, 2],
+        color='k',        # black
+        linestyle='--',   # dashed
+        linewidth=1.5,   # thinner line
+        marker='o',
+        markersize=2,    # smaller markers
+        label=labels[0],
+    )
+    ax.plot(
+        pred_coords[:, 0],
+        pred_coords[:, 1],
+        pred_coords[:, 2],
+        color=colors[0],
+        linewidth=1.5,   # thinner line
+        marker='o',
+        markersize=2,    # smaller markers
+        label=labels[1],
+    )
+
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title(title)
+    ax.legend()
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path)
+    plt.show()
+
+
 # Example usage:
 
 # plot_2d_trajectory(past, true_line, pred_line,
