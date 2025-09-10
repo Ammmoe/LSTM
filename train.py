@@ -38,7 +38,7 @@ DATA_TYPE = "zurich"  # "artificial" or "quadcopter" or "zurich"
 
 # Data parameters
 LOOK_BACK = 50  # past frames
-FORWARD_LEN = 10  # future frames
+FORWARD_LEN = 0  # future frames
 
 # Initialize variables
 N_SAMPLES = 0
@@ -349,7 +349,7 @@ for idx in random_test_indices:
 
     # Inverse transform to original scale
     past_orig = scaler_X.inverse_transform(past)
-    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))
+    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))[0]
     pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))[0]
 
     # Concatenate last past point with future to make continuous lines
