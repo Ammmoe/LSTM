@@ -325,6 +325,7 @@ plot_3d_pred_vs_true(
     true_future_orig, pred_future_orig, labels=labels, save_path=plot_path
 )
 
+# Plot individual trajectories with past, true future, and predicted future
 # Make sure NUM_PLOTS does not exceed available test samples
 NUM_PLOTS = min(NUM_PLOTS, len(X_test_tensor))
 
@@ -338,18 +339,18 @@ random_test_indices = np.random.choice(indices, NUM_PLOTS, replace=False)
 trajectory_sets_2 = []
 for idx in random_test_indices:
     test_input = X_test_tensor[idx : idx + 1].to(device)  # shape (1, LOOK_BACK, 3)
-    true_future = y_test_tensor[idx].numpy()  # shape (FORWARD_LEN, 3)
+    true_future = y_test_tensor[idx].numpy()  # shape (3,)
 
     with torch.no_grad():
-        pred_future = model(test_input, pred_len=1).cpu().numpy()
+        pred_future = model(test_input, pred_len=1).cpu().numpy() # shape (1, 3)
 
     past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
-    pred_future = pred_future[0]  # shape (FORWARD_LEN, 3)
+    pred_future = pred_future[0]  # shape (3,)
 
     # Inverse transform to original scale
     past_orig = scaler_X.inverse_transform(past)
     true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))
-    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))
+    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))[0]
 
     # Concatenate last past point with future to make continuous lines
     true_line = np.vstack([past_orig[-1:], true_future_orig_2])
