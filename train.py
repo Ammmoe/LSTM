@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from data.artificial_trajectory_generator import generate_sine_cosine_trajectories_3d
 from models.gru_predictor import TrajPredictor
 from utils.logger import get_logger
-from utils.plot_generator import plot_3d_pred_vs_true
+from utils.plot_generator import plot_3d_pred_vs_true, plot_3d_trajectories_subplots
 from utils.model_evaluator import evaluate_metrics
 from data.trajectory_loader import (
     load_quadcopter_trajectories_in_meters,
@@ -307,7 +307,7 @@ pred_future_orig = scaler_y.inverse_transform(y_pred_np)
 trajectory_sets = [(true_future_orig, pred_future_orig)]
 
 # Plot actual vs predicted test trajectory
-plot_path = os.path.join(exp_dir, "trajectory_plot.png")
+plot_path = os.path.join(exp_dir, "trajectory_plot_overall.png")
 
 # Define labels based on model type
 labels = []
@@ -324,3 +324,39 @@ else:
 plot_3d_pred_vs_true(
     true_future_orig, pred_future_orig, labels=labels, save_path=plot_path
 )
+
+# Make sure NUM_PLOTS does not exceed available test samples
+NUM_PLOTS = min(NUM_PLOTS, len(X_test_tensor))
+
+# Select evenly spaced indices from test set for non-overlapping sequences
+step = LOOK_BACK + FORWARD_LEN
+indices = np.arange(0, len(X_test_tensor), step)
+
+# Visualize prediction for three random test sequences
+random_test_indices = np.random.choice(indices, NUM_PLOTS, replace=False)
+
+trajectory_sets_2 = []
+for idx in random_test_indices:
+    test_input = X_test_tensor[idx : idx + 1].to(device)  # shape (1, LOOK_BACK, 3)
+    true_future = y_test_tensor[idx].numpy()  # shape (FORWARD_LEN, 3)
+
+    with torch.no_grad():
+        pred_future = model(test_input, pred_len=1).cpu().numpy()
+
+    past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
+    pred_future = pred_future[0]  # shape (FORWARD_LEN, 3)
+
+    # Inverse transform to original scale
+    past_orig = scaler_X.inverse_transform(past)
+    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))
+    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))
+
+    # Concatenate last past point with future to make continuous lines
+    true_line = np.vstack([past_orig[-1:], true_future_orig_2])
+    pred_line = np.vstack([past_orig[-1:], pred_future_orig_2])
+
+    trajectory_sets_2.append((past_orig, true_line, pred_line))
+
+# Plot actual vs predicted test trajectory
+plot_path = os.path.join(exp_dir, "trajectory_plot_subplots.png")
+plot_3d_trajectories_subplots(trajectory_sets_2, save_path=plot_path)

@@ -131,15 +131,15 @@ def plot_3d_trajectories_subplots(
         pred_label = labels[2] if labels else "Predicted"
         ax.plot(past[:, 0], past[:, 1], past[:, 2], f"{past_color}.-", label=past_label)
         ax.plot(
-            true_line[:, 0],
             true_line[:, 1],
+            true_line[:, 0],
             true_line[:, 2],
             f"{true_color}.-",
             label=true_label,
         )
         ax.plot(
-            pred_line[:, 0],
             pred_line[:, 1],
+            pred_line[:, 0],
             pred_line[:, 2],
             f"{pred_color}.-",
             label=pred_label,
@@ -269,7 +269,7 @@ def plot_3d_pred_vs_true(
         figsize (tuple): Figure size.
         save_path (str): If provided, saves the plot to this path.
     """
-    labels = labels or ["Actual Trajectory", "GRU"]
+    labels = labels or ["Actual Trajectory", "Predicted Trajectory"]
     colors = colors or ["r"]
 
     fig = plt.figure(figsize=figsize)
