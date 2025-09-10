@@ -36,12 +36,13 @@ def evaluate_metrics(
         - All returned metrics are scalar floats.
     """
     # reshape for inverse transform
-    y_true_np = y_true.reshape(-1, 3).cpu().numpy()
-    y_pred_np = y_pred.reshape(-1, 3).cpu().numpy()
+    # Use only the first 3 columns (x, y, z)
+    y_true_pos = y_true[..., :3].reshape(-1, 3).cpu().numpy()
+    y_pred_pos = y_pred[..., :3].reshape(-1, 3).cpu().numpy()
 
-    # inverse transform
-    y_true_inv = scaler.inverse_transform(y_true_np)
-    y_pred_inv = scaler.inverse_transform(y_pred_np)
+    # inverse transform positions
+    y_true_inv = scaler.inverse_transform(y_true_pos)
+    y_pred_inv = scaler.inverse_transform(y_pred_pos)
 
     # back to torch tensors for metric computation
     y_true_t = torch.tensor(y_true_inv, dtype=torch.float32)

@@ -93,11 +93,24 @@ else:
 
 # Prepare DataLoaders
 X, y = [], []
-for trajectory in data_3d:
+for trajectory in data_3d:    
+    # Slide over trajectory to create sequences
     seq_count = len(trajectory) - LOOK_BACK - FORWARD_LEN + 1
     for i in range(seq_count):
-        X.append(trajectory[i : i + LOOK_BACK])
-        y.append(trajectory[i + LOOK_BACK + FORWARD_LEN - 1])
+        # Slice the trajectory for this sequence
+        seq_X_pos = trajectory[i : i + LOOK_BACK]  # shape (LOOK_BACK, 3)
+        seq_y_pos = trajectory[i + LOOK_BACK + FORWARD_LEN - 1]  # shape (3,)
+
+        # Create time feature for this sequence
+        t_X = np.arange(LOOK_BACK, dtype=np.float32)[:, None]  # shape (LOOK_BACK, 1)
+        t_y = np.array([LOOK_BACK + FORWARD_LEN - 1], dtype=np.float32)  # shape (1,)
+
+        # Concatenate position + time
+        seq_X = np.hstack([seq_X_pos, t_X])  # shape (LOOK_BACK, 4)
+        seq_y = np.hstack([seq_y_pos, t_y])  # shape (4,)
+
+        X.append(seq_X)
+        y.append(seq_y)
 
 X = np.array(X, dtype=np.float32)  # shape (num_sequences, LOOK_BACK, 3)
 y = np.array(y, dtype=np.float32)  # shape (num_sequences, 3)
@@ -111,15 +124,27 @@ X_train, X_test, y_train, y_test = train_test_split(
 scaler_X = MinMaxScaler(feature_range=(0, 1))
 scaler_y = MinMaxScaler(feature_range=(0, 1))
 
-# Fit on TRAIN ONLY (flatten sequences)
-scaler_X.fit(X_train.reshape(-1, 3))
-scaler_y.fit(y_train)
+# Split X into (pos: x,y,z) and (t)
+X_train_pos, X_train_t = X_train[..., :3], X_train[..., 3:]
+X_test_pos,  X_test_t  = X_test[..., :3],  X_test[..., 3:]
 
-X_train_scaled = scaler_X.transform(X_train.reshape(-1, 3)).reshape(X_train.shape)
-X_test_scaled = scaler_X.transform(X_test.reshape(-1, 3)).reshape(X_test.shape)
+# Fit scalers on TRAIN positions only
+scaler_X.fit(X_train_pos.reshape(-1, 3))
+scaler_y.fit(y_train[..., :3])  # only scale position part of y
 
-y_train_scaled = scaler_y.transform(y_train)
-y_test_scaled = scaler_y.transform(y_test)
+# Transform positions
+X_train_pos_scaled = scaler_X.transform(X_train_pos.reshape(-1, 3)).reshape(X_train_pos.shape)
+X_test_pos_scaled = scaler_X.transform(X_test_pos.reshape(-1, 3)).reshape(X_test_pos.shape)
+
+y_train_pos_scaled = scaler_y.transform(y_train[..., :3])
+y_test_pos_scaled = scaler_y.transform(y_test[..., :3])
+
+# Concatenate scaled positions with original time
+X_train_scaled = np.concatenate([X_train_pos_scaled, X_train_t], axis=-1)
+X_test_scaled = np.concatenate([X_test_pos_scaled, X_test_t], axis=-1)
+
+y_train_scaled = np.concatenate([y_train_pos_scaled, y_train[..., 3:]], axis=-1)
+y_test_scaled = np.concatenate([y_test_pos_scaled, y_test[..., 3:]], axis=-1)
 
 # Convert to tensors
 X_train_tensor = torch.tensor(
@@ -146,10 +171,10 @@ logger.info("Test sequences: %s", X_test_tensor.shape)
 # Train Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_params = {
-    "input_size": 3,  # x, y, z
+    "input_size": 4,  # x, y, z, t
     "hidden_size": 64,
-    "output_size": 3,
-    "num_layers": 2,
+    "output_size": 4, # x, y, z, t
+    "num_layers": 1,
 }
 model = TrajPredictor(**model_params).to(device)
 criterion = nn.MSELoss()
@@ -176,7 +201,7 @@ for epoch in range(EPOCHS):
 
         optimizer.zero_grad()
         predictions = model(batch_x)
-        loss = criterion(predictions, batch_y)
+        loss = criterion(predictions[..., :3], batch_y[..., :3])
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
@@ -234,7 +259,7 @@ with torch.no_grad():
         inference_times.append(end_inf - start_inf)
 
         # Compute loss
-        loss = criterion(outputs, batch_y)
+        loss = criterion(outputs[..., :3], batch_y[..., :3])
         test_loss += loss.item()
 
         # Collect predictions and ground truth
@@ -299,9 +324,13 @@ trajectory_sets = []
 y_pred_np = y_pred.numpy()
 y_true_np = y_true.numpy()
 
+# Use only x, y, z columns (ignore time)
+y_true_pos = y_true_np[..., :3]
+y_pred_pos = y_pred_np[..., :3]
+
 # Inverse scales to original coordinates for plotting
-true_future_orig = scaler_y.inverse_transform(y_true_np)
-pred_future_orig = scaler_y.inverse_transform(y_pred_np)
+true_future_orig = scaler_y.inverse_transform(y_true_pos)
+pred_future_orig = scaler_y.inverse_transform(y_pred_pos)
 
 # Prepare trajectory set (no past points)
 trajectory_sets = [(true_future_orig, pred_future_orig)]
@@ -346,11 +375,16 @@ for idx in random_test_indices:
 
     past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
     pred_future = pred_future[0]  # shape (3,)
+    
+    # Use only x, y, z columns for plotting
+    past_pos = past[..., :3]
+    true_future_pos = true_future[:3]
+    pred_future_pos = pred_future[:3]
 
     # Inverse transform to original scale
-    past_orig = scaler_X.inverse_transform(past)
-    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))
-    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))
+    past_orig = scaler_X.inverse_transform(past_pos)
+    true_future_orig_2 = scaler_y.inverse_transform(true_future_pos.reshape(1, -1))
+    pred_future_orig_2 = scaler_y.inverse_transform(pred_future_pos.reshape(1, -1))
 
     # Concatenate last past point with future to make continuous lines
     true_line = np.vstack([past_orig[-1:], true_future_orig_2])
