@@ -342,15 +342,24 @@ for idx in random_test_indices:
     true_future = y_test_tensor[idx].numpy()  # shape (3,)
 
     with torch.no_grad():
-        pred_future = model(test_input, pred_len=1).cpu().numpy() # shape (1, 3)
+        pred_future = model(test_input, pred_len=1).cpu().numpy()  # shape (1, 3)
 
     past = test_input[0].cpu().numpy()  # shape (LOOK_BACK, 3)
     pred_future = pred_future[0]  # shape (3,)
 
     # Inverse transform to original scale
     past_orig = scaler_X.inverse_transform(past)
-    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))[0]
-    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))[0]
+    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))
+    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))
+
+    print(
+        "past:",
+        past_orig[-1:].shape,
+        "true:",
+        true_future_orig_2.shape,
+        "pred:",
+        pred_future_orig_2.shape,
+    )
 
     # Concatenate last past point with future to make continuous lines
     true_line = np.vstack([past_orig[-1:], true_future_orig_2])
