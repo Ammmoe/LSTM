@@ -185,7 +185,7 @@ for epoch in range(EPOCHS):
 
     # Log per-epoch training metrics
     logger.info("Epoch %d/%d - Train Loss: %.7f", epoch + 1, EPOCHS, avg_train_loss)
-    
+
     # Check for early stopping
     if avg_train_loss < best_loss:
         best_loss = avg_train_loss
@@ -193,7 +193,7 @@ for epoch in range(EPOCHS):
         torch.save(model.state_dict(), os.path.join(exp_dir, "best_model.pt"))
     else:
         epochs_no_improve += 1
-    
+
     # If no improvement for 'patience' epochs, stop training
     if epochs_no_improve >= patience:
         logger.info("Early stopping triggered after %d epochs", epoch + 1)
@@ -203,6 +203,9 @@ for epoch in range(EPOCHS):
 # If training completed without early stopping
 if not early_stop:
     logger.info("Training finished without early stopping.")
+
+# Save last-epoch model
+torch.save(model.state_dict(), os.path.join(exp_dir, "last_model.pt"))
 
 # Log total training time
 training_end_time = time.time()
@@ -305,4 +308,19 @@ trajectory_sets = [(true_future_orig, pred_future_orig)]
 
 # Plot actual vs predicted test trajectory
 plot_path = os.path.join(exp_dir, "trajectory_plot.png")
-plot_3d_pred_vs_true(true_future_orig, pred_future_orig, save_path=plot_path)
+
+# Define labels based on model type
+labels = []
+if config["model_module"] == "models.lstm_predictor":
+    labels = ["Actual Trajectory", "LSTM"]
+elif config["model_module"] == "models.gru_predictor":
+    labels = ["Actual Trajectory", "GRU"]
+elif config["model_module"] == "models.rnn_predictor":
+    labels = ["Actual Trajectory", "RNN"]
+else:
+    labels = ["Actual Trajectory", "Predicted Trajectory"]
+
+# Generate and save plot
+plot_3d_pred_vs_true(
+    true_future_orig, pred_future_orig, labels=labels, save_path=plot_path
+)

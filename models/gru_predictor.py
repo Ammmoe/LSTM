@@ -26,7 +26,8 @@ class TrajPredictor(nn.Module):
 
     def __init__(self, input_size=3, hidden_size=128, output_size=3, num_layers=1):
         super(TrajPredictor, self).__init__()
-        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
+        self.encoder = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
+        self.decoder = nn.GRU(output_size, hidden_size, num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_size, output_size)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -36,17 +37,21 @@ class TrajPredictor(nn.Module):
 
     def _init_weights(self):
         # Initialize GRU weights
-        for name, param in self.gru.named_parameters():
+        for name, param in self.encoder.named_parameters():
             if "weight" in name:
                 nn.init.xavier_uniform_(param)
             elif "bias" in name:
                 nn.init.zeros_(param)
-
+        for name, param in self.decoder.named_parameters():
+            if "weight" in name:
+                nn.init.xavier_uniform_(param)
+            elif "bias" in name:
+                nn.init.zeros_(param)
         # Initialize Linear layer
         nn.init.xavier_uniform_(self.fc.weight)
         nn.init.zeros_(self.fc.bias)
 
-    def forward(self, x):
+    def forward(self, x, pred_len=1):
         """
         Forward pass through the model.
 
@@ -58,12 +63,22 @@ class TrajPredictor(nn.Module):
             torch.Tensor: Predicted future sequence of shape (batch, future_len, output_size).
         """
         # Encode past trajectory
-        _, h = self.gru(x)
+        _, h = self.encoder(x)
 
-        # Squeeze the first dimension to get (batch_size, hidden_size)
-        final_hidden_state = h.squeeze(0)
+        # First decoder input = last input point
+        decoder_input = x[:, -1:, :]  # shape (batch, 1, input_size)
+        outputs = []
 
-        # Pass the final hidden state through a linear layer to get the single output
-        output = self.fc(final_hidden_state)
+        # Autoregressive decoding
+        for _ in range(pred_len):
+            out, h = self.decoder(decoder_input, h)
+            pred = self.fc(out)  # (batch, 1, output_size)
+            outputs.append(pred)
+            decoder_input = pred  # feed prediction back
 
-        return output
+        outputs = torch.cat(outputs, dim=1)  # (batch, future_len, output_size)
+
+        # Return squeezed version if only one step is predicted
+        if pred_len == 1:
+            return outputs.squeeze(1)  # (batch, output_size)
+        return outputs

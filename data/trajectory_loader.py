@@ -78,7 +78,7 @@ def load_zurich_single_utm_trajectory(csv_path: str):
     # Use the first row as reference
     ref_lat = df["lat"].iloc[0]
     ref_lon = df["lon"].iloc[0]
-    ref_alt = df["alt"].iloc[0]
+    # ref_alt = df["alt"].iloc[0]
 
     # Convert lat/lon → meters relative to first point
     x, y = latlon_to_meters(
@@ -88,9 +88,10 @@ def load_zurich_single_utm_trajectory(csv_path: str):
         ref_lon=ref_lon,
     )
 
-    # Altitude relative to first point
-    z = df["alt"].values - ref_alt
+    # Altitude relative to first points
+    # z = df["alt"].values - ref_alt
+    z = df["alt"].values
 
-    trajectory = np.stack([x, y, z], axis=1)
+    trajectory = np.stack([np.asarray(x), np.asarray(y), np.asarray(z)], axis=1)
 
     return [trajectory], 1

@@ -276,8 +276,8 @@ def plot_3d_pred_vs_true(
     ax = cast(Axes3D, fig.add_subplot(111, projection="3d"))
 
     ax.plot(
-        true_coords[:, 0],
         true_coords[:, 1],
+        true_coords[:, 0],
         true_coords[:, 2],
         color='k',        # black
         linestyle='--',   # dashed
@@ -285,16 +285,16 @@ def plot_3d_pred_vs_true(
         label=labels[0],
     )
     ax.plot(
-        pred_coords[:, 0],
         pred_coords[:, 1],
+        pred_coords[:, 0],
         pred_coords[:, 2],
         color=colors[0],
         linewidth=1,   # thinner line
         label=labels[1],
     )
 
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
+    ax.set_xlabel("Y")
+    ax.set_ylabel("X")
     ax.set_zlabel("Z")
     ax.set_title(title)
     ax.legend()
