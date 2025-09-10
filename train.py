@@ -125,11 +125,11 @@ scaler_X = MinMaxScaler(feature_range=(0, 1))
 scaler_y = MinMaxScaler(feature_range=(0, 1))
 
 # Fit on TRAIN ONLY (flatten sequences)
-scaler_X.fit(X_train.reshape(-1, 3))
+scaler_X.fit(X_train.reshape(-1, 4))
 scaler_y.fit(y_train)
 
-X_train_scaled = scaler_X.transform(X_train.reshape(-1, 3)).reshape(X_train.shape)
-X_test_scaled = scaler_X.transform(X_test.reshape(-1, 3)).reshape(X_test.shape)
+X_train_scaled = scaler_X.transform(X_train.reshape(-1, 4)).reshape(X_train.shape)
+X_test_scaled = scaler_X.transform(X_test.reshape(-1, 4)).reshape(X_test.shape)
 
 y_train_scaled = scaler_y.transform(y_train)
 y_test_scaled = scaler_y.transform(y_test)
@@ -161,7 +161,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_params = {
     "input_size": 4,  # x, y, z, t
     "hidden_size": 64,
-    "output_size": 3,
+    "output_size": 4,
     "num_layers": 2,
 }
 model = TrajPredictor(**model_params).to(device)
@@ -313,8 +313,8 @@ y_pred_np = y_pred.numpy()
 y_true_np = y_true.numpy()
 
 # Inverse scales to original coordinates for plotting
-true_future_orig = scaler_y.inverse_transform(y_true_np)
-pred_future_orig = scaler_y.inverse_transform(y_pred_np)
+true_future_orig = scaler_y.inverse_transform(y_true_np)[..., 3:] # only (x,y,z)
+pred_future_orig = scaler_y.inverse_transform(y_pred_np)[..., 3:]
 
 # Prepare trajectory set (no past points)
 trajectory_sets = [(true_future_orig, pred_future_orig)]
@@ -361,9 +361,9 @@ for idx in random_test_indices:
     pred_future = pred_future[0]  # shape (3,)
 
     # Inverse transform to original scale
-    past_orig = scaler_X.inverse_transform(past)
-    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))
-    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))
+    past_orig = scaler_X.inverse_transform(past)[..., :3]  # only (x,y,z)
+    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))[..., 3:]
+    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))[..., 3:]
 
     # Concatenate last past point with future to make continuous lines
     true_line = np.vstack([past_orig[-1:], true_future_orig_2])
