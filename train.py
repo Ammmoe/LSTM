@@ -38,7 +38,7 @@ DATA_TYPE = "zurich"  # "artificial" or "quadcopter" or "zurich"
 
 # Data parameters
 LOOK_BACK = 50  # past frames
-FORWARD_LEN = 2  # future frames
+FORWARD_LEN = 5  # future frames
 
 # Initialize variables
 N_SAMPLES = 0
