@@ -36,8 +36,8 @@ def evaluate_metrics(
         - All returned metrics are scalar floats.
     """
     # reshape for inverse transform
-    y_true_np = y_true.reshape(-1, 3).cpu().numpy()
-    y_pred_np = y_pred.reshape(-1, 3).cpu().numpy()
+    y_true_np = y_true.reshape(-1, 4).cpu().numpy()
+    y_pred_np = y_pred.reshape(-1, 4).cpu().numpy()
 
     # inverse transform
     y_true_inv = scaler.inverse_transform(y_true_np)[..., :3]  # only (x,y,z)
