@@ -313,8 +313,8 @@ y_pred_np = y_pred.numpy()
 y_true_np = y_true.numpy()
 
 # Inverse scales to original coordinates for plotting
-true_future_orig = scaler_y.inverse_transform(y_true_np)[..., 3:] # only (x,y,z)
-pred_future_orig = scaler_y.inverse_transform(y_pred_np)[..., 3:]
+true_future_orig = scaler_y.inverse_transform(y_true_np)[..., :3] # only (x,y,z)
+pred_future_orig = scaler_y.inverse_transform(y_pred_np)[..., :3]
 
 # Prepare trajectory set (no past points)
 trajectory_sets = [(true_future_orig, pred_future_orig)]
@@ -362,8 +362,8 @@ for idx in random_test_indices:
 
     # Inverse transform to original scale
     past_orig = scaler_X.inverse_transform(past)[..., :3]  # only (x,y,z)
-    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))[..., 3:]
-    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))[..., 3:]
+    true_future_orig_2 = scaler_y.inverse_transform(true_future.reshape(1, -1))[..., :3]
+    pred_future_orig_2 = scaler_y.inverse_transform(pred_future.reshape(1, -1))[..., :3]
 
     # Concatenate last past point with future to make continuous lines
     true_line = np.vstack([past_orig[-1:], true_future_orig_2])
