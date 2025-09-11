@@ -350,37 +350,38 @@ with open(config_path, "w", encoding="utf-8") as f:
 
 logger.info("Config saved")
 
-trajectory_sets = []
+if DATA_TYPE == "zurich":
+    trajectory_sets = []
 
-# Prepare data for plotting
-y_pred_np = y_pred.numpy()
-y_true_np = y_true.numpy()
+    # Prepare data for plotting
+    y_pred_np = y_pred.numpy()
+    y_true_np = y_true.numpy()
 
-# Inverse scales to original coordinates for plotting
-true_future_orig = scaler_y.inverse_transform(y_true_np)[..., :3]  # only (x,y,z)
-pred_future_orig = scaler_y.inverse_transform(y_pred_np)[..., :3]
+    # Inverse scales to original coordinates for plotting
+    true_future_orig = scaler_y.inverse_transform(y_true_np)[..., :3]  # only (x,y,z)
+    pred_future_orig = scaler_y.inverse_transform(y_pred_np)[..., :3]
 
-# Prepare trajectory set (no past points)
-trajectory_sets = [(true_future_orig, pred_future_orig)]
+    # Prepare trajectory set (no past points)
+    trajectory_sets = [(true_future_orig, pred_future_orig)]
 
-# Plot actual vs predicted test trajectory
-plot_path = os.path.join(exp_dir, "trajectory_plot_overall.png")
+    # Plot actual vs predicted test trajectory
+    plot_path = os.path.join(exp_dir, "trajectory_plot_overall.png")
 
-# Define labels based on model type
-labels = []
-if config["model_module"] == "models.lstm_predictor":
-    labels = ["Actual Trajectory", "LSTM"]
-elif config["model_module"] == "models.gru_predictor":
-    labels = ["Actual Trajectory", "GRU"]
-elif config["model_module"] == "models.rnn_predictor":
-    labels = ["Actual Trajectory", "RNN"]
-else:
-    labels = ["Actual Trajectory", "Predicted Trajectory"]
+    # Define labels based on model type
+    labels = []
+    if config["model_module"] == "models.lstm_predictor":
+        labels = ["Actual Trajectory", "LSTM"]
+    elif config["model_module"] == "models.gru_predictor":
+        labels = ["Actual Trajectory", "GRU"]
+    elif config["model_module"] == "models.rnn_predictor":
+        labels = ["Actual Trajectory", "RNN"]
+    else:
+        labels = ["Actual Trajectory", "Predicted Trajectory"]
 
-# Generate and save plot
-plot_3d_pred_vs_true(
-    true_future_orig, pred_future_orig, labels=labels, save_path=plot_path
-)
+    # Generate and save plot
+    plot_3d_pred_vs_true(
+        true_future_orig, pred_future_orig, labels=labels, save_path=plot_path
+    )
 
 # Plot individual trajectories with past, true future, and predicted future
 # Make sure NUM_PLOTS does not exceed available test samples
