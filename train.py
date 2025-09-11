@@ -35,6 +35,7 @@ from data.trajectory_loader import (
 # pylint: disable=all
 # Settings
 DATA_TYPE = "zurich"  # "artificial" or "quadcopter" or "zurich"
+USE_TIME_FEATURE = False  # include time as input feature
 
 # Data parameters
 LOOK_BACK = 50  # past frames
@@ -93,7 +94,7 @@ else:
 
 # Prepare DataLoaders
 X, y = [], []
-for trajectory in data_3d:    
+for trajectory in data_3d:
     # Slide over trajectory to create sequences
     seq_count = len(trajectory) - LOOK_BACK - FORWARD_LEN + 1
     for i in range(seq_count):
@@ -101,13 +102,22 @@ for trajectory in data_3d:
         seq_X_pos = trajectory[i : i + LOOK_BACK]  # shape (LOOK_BACK, 3)
         seq_y_pos = trajectory[i + LOOK_BACK + FORWARD_LEN - 1]  # shape (3,)
 
-        # Create time feature for this sequence
-        t_X = np.arange(LOOK_BACK, dtype=np.float32)[:, None]  # shape (LOOK_BACK, 1)
-        t_y = np.array([LOOK_BACK + FORWARD_LEN - 1], dtype=np.float32)  # shape (1,)
+        if USE_TIME_FEATURE:
+            # Create time feature for this sequence
+            t_X = np.arange(LOOK_BACK, dtype=np.float32)[
+                :, None
+            ]  # shape (LOOK_BACK, 1)
+            t_y = np.array(
+                [LOOK_BACK + FORWARD_LEN - 1], dtype=np.float32
+            )  # shape (1,)
 
-        # Concatenate position + time (time not scaled)
-        seq_X = np.hstack([seq_X_pos, t_X])  # shape (LOOK_BACK, 4)
-        seq_y = np.hstack([seq_y_pos, t_y])  # shape (4,)
+            # Concatenate position + time (time not scaled)
+            seq_X = np.hstack([seq_X_pos, t_X])  # shape (LOOK_BACK, 4)
+            seq_y = np.hstack([seq_y_pos, t_y])  # shape (4,)
+        else:
+            # Use only positions
+            seq_X = seq_X_pos  # shape (LOOK_BACK, 3)
+            seq_y = seq_y_pos  # shape (3,)
 
         X.append(seq_X)
         y.append(seq_y)
@@ -120,16 +130,23 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, shuffle=False
 )
 
+# Get feature dimensions dynamically
+num_features_X = X_train.shape[-1]  # 3 or 4 depending on USE_TIME_FEATURE
+
 # Scale data to [0, 1]
 scaler_X = MinMaxScaler(feature_range=(0, 1))
 scaler_y = MinMaxScaler(feature_range=(0, 1))
 
 # Fit on TRAIN ONLY (flatten sequences)
-scaler_X.fit(X_train.reshape(-1, 4))
+scaler_X.fit(X_train.reshape(-1, num_features_X))
 scaler_y.fit(y_train)
 
-X_train_scaled = scaler_X.transform(X_train.reshape(-1, 4)).reshape(X_train.shape)
-X_test_scaled = scaler_X.transform(X_test.reshape(-1, 4)).reshape(X_test.shape)
+X_train_scaled = scaler_X.transform(X_train.reshape(-1, num_features_X)).reshape(
+    X_train.shape
+)
+X_test_scaled = scaler_X.transform(X_test.reshape(-1, num_features_X)).reshape(
+    X_test.shape
+)
 
 y_train_scaled = scaler_y.transform(y_train)
 y_test_scaled = scaler_y.transform(y_test)
@@ -159,10 +176,10 @@ logger.info("Test sequences: %s", X_test_tensor.shape)
 # Train Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_params = {
-    "input_size": 4,  # x, y, z, t
+    "input_size": 3,  # x, y, z, t
     "hidden_size": 64,
-    "output_size": 4,
-    "num_layers": 2,
+    "output_size": 3,
+    "num_layers": 1,
 }
 model = TrajPredictor(**model_params).to(device)
 criterion = nn.MSELoss()
@@ -278,12 +295,39 @@ y_pred = torch.cat(all_preds, dim=0)
 y_true = torch.cat(all_trues, dim=0)
 
 # Compute evaluation metrics (inverse scaling applied)
-mse, rmse, mae = evaluate_metrics(y_true, y_pred, scaler_y)
+(
+    mse,
+    rmse,
+    mae,
+    ede,
+    (mse_x, mse_y, mse_z),
+    (rmse_x, rmse_y, rmse_z),
+    (mae_x, mae_y, mae_z),
+) = evaluate_metrics(y_true, y_pred, scaler_y)
 
 # Log all metrics
-logger.info("Test MSE: %.6f meters^2", mse)
-logger.info("Test RMSE: %.6f meters", rmse)
-logger.info("Test MAE: %.6f meters", mae)
+logger.info(
+    "Test Mean Squared Error (MSE) per axis: x=%.6f, y=%.6f, z=%.6f meters^2",
+    mse_x,
+    mse_y,
+    mse_z,
+)
+logger.info("Test Mean Squared Error (MSE): %.6f meters^2", mse)
+logger.info(
+    "Test Root Mean Squared Error (RMSE) per axis: x=%.6f, y=%.6f, z=%.6f meters",
+    rmse_x,
+    rmse_y,
+    rmse_z,
+)
+logger.info("Test Root Mean Squared Error (RMSE): %.6f meters", rmse)
+logger.info(
+    "Test Mean Absolute Error (MAE) per axis: x=%.6f, y=%.6f, z=%.6f meters",
+    mae_x,
+    mae_y,
+    mae_z,
+)
+logger.info("Test Mean Absolute Error (MAE): %.6f meters", mae)
+logger.info("Test Euclidean Distance Error (EDE): %.6f meters", ede)
 
 # Save config / hyperparameters
 config = {
@@ -313,7 +357,7 @@ y_pred_np = y_pred.numpy()
 y_true_np = y_true.numpy()
 
 # Inverse scales to original coordinates for plotting
-true_future_orig = scaler_y.inverse_transform(y_true_np)[..., :3] # only (x,y,z)
+true_future_orig = scaler_y.inverse_transform(y_true_np)[..., :3]  # only (x,y,z)
 pred_future_orig = scaler_y.inverse_transform(y_pred_np)[..., :3]
 
 # Prepare trajectory set (no past points)
