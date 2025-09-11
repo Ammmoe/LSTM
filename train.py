@@ -1,16 +1,22 @@
 """
 train.py
 
-This script trains and evaluates a sequence-to-sequence LSTM model for trajectory prediction.
-It uses synthetic sine/cosine-based trajectories to simulate smooth 3D motion data.
+Train and evaluate a sequence-to-sequence trajectory prediction model (LSTM/GRU/RNN).
 
-Main steps:
-- Generate synthetic 3D trajectory data with optional noise.
-- Transform trajectories into past (LOOK_BACK) and future (FORWARD_LEN) sequences.
-- Split data into training and testing sets.
-- Train the Seq2Seq LSTM model defined in `models/lstm_predictor.py` using MSE loss.
-- Evaluate model performance on the test set.
-- Visualize sample predicted trajectories against ground truth using 3D plots.
+This script supports multiple 3D trajectory datasets:
+- Artificial sine/cosine trajectories
+- Quadcopter flight trajectories
+- Zurich flight trajectories
+
+Main workflow:
+1. Load or generate 3D trajectory data.
+2. Convert trajectories into sequences of past frames (LOOK_BACK) and future frames (FORWARD_LEN).
+3. Split sequences into training and testing sets.
+4. Normalize features and convert them to PyTorch tensors.
+5. Train the sequence-to-sequence model using MSE loss with optional early stopping.
+6. Evaluate model performance on the test set using metrics like MSE, RMSE, MAE, and Euclidean Distance Error (EDE).
+7. Visualize predictions against ground truth trajectories in 3D plots.
+8. Save the trained model, training configuration, and plots for analysis.
 """
 
 import os

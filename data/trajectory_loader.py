@@ -1,19 +1,14 @@
 """
 trajectory_loader.py
 
-This module provides utilities to load and preprocess 3D quadcopter trajectory data
-from CSV files for use in trajectory prediction models.
+Utilities for loading and preprocessing 3D trajectory data from CSV files
+for use in trajectory prediction models.
 
-Functions:
-- load_quadcopter_trajectories(csv_path: str) -> tuple[np.ndarray, int]:
-    Loads 3D trajectories for each unique flight in the CSV. Trajectories are truncated
-    to the minimum length across all flights to ensure uniform sequence length.
-    Returns both the trajectories array and the number of flights.
+Supports multiple datasets, including:
+- Quadcopter flights (multiple trajectories per file)
+- Zurich flight dataset (single trajectory)
 
-Usage Example:
-    from quadcopter_data_loader import load_quadcopter_trajectories
-
-    trajectories, n_samples = load_quadcopter_trajectories("quadcopter.csv")
+Provides conversion from latitude/longitude to relative meters.
 """
 
 import pandas as pd
@@ -24,15 +19,19 @@ from utils.coordinate_converter import latlon_to_meters
 def load_quadcopter_trajectories_in_meters(csv_path: str):
     """
     Load 3D quadcopter trajectories from CSV and convert positions to meters.
-    Returns a list of full-length trajectories (no truncation).
+
+    Each trajectory corresponds to a unique flight and retains its full length.
+    The first point of each flight is used as the reference origin for coordinate conversion.
 
     Args:
-        csv_path (str): Must contain ['flight', 'position_x', 'position_y', 'position_z']
+        csv_path (str): Path to CSV file containing columns
+                        ['flight', 'position_x', 'position_y', 'position_z'].
 
     Returns:
-        trajectories (list of np.ndarray): Each trajectory is (traj_len, 3) in meters
-        n_samples (int): Number of flights
+        trajectories (list of np.ndarray): List of trajectories, each of shape (traj_len, 3) in meters.
+        n_samples (int): Number of unique flights in the CSV.
     """
+
     df = pd.read_csv(csv_path)
     flight_ids = df["flight"].unique()
     n_samples = len(flight_ids)
@@ -60,17 +59,19 @@ def load_quadcopter_trajectories_in_meters(csv_path: str):
 
 def load_zurich_single_utm_trajectory(csv_path: str):
     """
-    Load a single 3D trajectory from CSV with ['lat', 'lon', 'alt'] columns.
-    Converts lat/lon to relative meters using latlon_to_meters,
-    and shifts altitude so that the trajectory starts at z=0.
+    Load a single 3D trajectory from the Zurich flight dataset.
+
+    Converts latitude/longitude to relative meters using the first point as reference
+    and adjusts altitude so that the trajectory starts at z=0.
 
     Args:
-        csv_path (str): Must contain ['lat', 'lon', 'alt']
+        csv_path (str): Path to CSV file containing columns ['lat', 'lon', 'alt'].
 
     Returns:
-        trajectory (np.ndarray): Array of shape (traj_len, 3) in meters
-        n_samples (int): Always 1, since this dataset has only one trajectory
+        trajectory (list of np.ndarray): List containing a single trajectory of shape (traj_len, 3) in meters.
+        n_samples (int): Always 1, since this dataset contains only one trajectory.
     """
+
     df = pd.read_csv(csv_path)
     df.columns = df.columns.str.strip()  # remove leading/trailing whitespace
     df = df[["lat", "lon", "alt"]]

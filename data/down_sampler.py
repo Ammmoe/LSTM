@@ -1,6 +1,22 @@
 """
-this script downsamples a CSV file by taking every 3rd row and
-saves the result to a new CSV file.
+downsample_csv.py
+
+Downsample a CSV file containing time-series trajectory data.
+
+This script supports two main operations:
+1. Simple downsampling by selecting every N-th row (commented out in this version).
+2. Time-based downsampling by creating target timestamps at fixed intervals
+    (e.g., 0.1 seconds) and selecting the closest available row from the original data.
+
+Steps performed:
+- Load the original CSV file.
+- Convert timestamps from microseconds to seconds.
+- Generate target timestamps at uniform intervals.
+- Find the closest row in the original data for each target timestamp.
+- Save the downsampled result to a new CSV file.
+
+The resulting CSV is suitable for downstream processing, such as trajectory
+prediction or analysis where uniform time intervals are required.
 """
 
 import pandas as pd

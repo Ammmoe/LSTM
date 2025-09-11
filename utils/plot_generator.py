@@ -1,8 +1,17 @@
 """
-trajectory_generator.py
+plot_generator.py
 
-This module generates smooth 2D and 3D trajectories using sine and cosine patterns
-with random amplitude, frequency and optional noise.
+Provides utilities for plotting 2D and 3D trajectories, including multiple
+trajectory sets with optional subplots, labels, colors, and axis scaling.
+
+Functions include:
+- plot_2d_trajectory: Plot one or more 2D trajectories.
+- plot_3d_trajectory: Plot one or more 3D trajectories.
+- plot_3d_trajectories_subplots: Plot multiple sets of 3D trajectories in subplots.
+- plot_3d_geo_trajectories: Plot 3D trajectories with latitude/longitude/altitude axes.
+- plot_3d_pred_vs_true: Compare predicted vs true 3D trajectories in a single plot.
+
+All plotting functions support optional figure saving.
 """
 
 from typing import cast, List, Tuple
@@ -22,15 +31,17 @@ def plot_2d_trajectory(
     save_path: str | None = None,
 ):
     """
-    Plot 2D trajectories.
+    Plot one or more 2D trajectories.
 
     Args:
-        *trajectories: One or more np.ndarray of shape (traj_len, 2)
-        labels (list): Labels for each trajectory
-        colors (list): Colors for each trajectory
-        title (str): Plot title
-        figsize (tuple): Figure size
+        *trajectories: One or more np.ndarray of shape (traj_len, 2).
+        labels (list, optional): Labels for each trajectory.
+        colors (list, optional): Colors for each trajectory.
+        title (str): Plot title.
+        figsize (tuple): Figure size.
+        save_path (str, optional): Path to save the figure.
     """
+
     _, ax = plt.subplots(figsize=figsize)
 
     for i, traj in enumerate(trajectories):
@@ -63,15 +74,17 @@ def plot_3d_trajectory(
     save_path: str | None = None,
 ):
     """
-    Plot 3D trajectories.
+    Plot one or more 3D trajectories.
 
     Args:
-        *trajectories: One or more np.ndarray of shape (traj_len, 3)
-        labels (list): Labels for each trajectory
-        colors (list): Colors for each trajectory
-        title (str): Plot title
-        figsize (tuple): Figure size
+        *trajectories: One or more np.ndarray of shape (traj_len, 3).
+        labels (list, optional): Labels for each trajectory.
+        colors (list, optional): Colors for each trajectory.
+        title (str): Plot title.
+        figsize (tuple): Figure size.
+        save_path (str, optional): Path to save the figure.
     """
+
     fig = plt.figure(figsize=figsize)
     ax = cast(Axes3D, fig.add_subplot(111, projection="3d"))
     for i, traj in enumerate(trajectories):
@@ -106,16 +119,18 @@ def plot_3d_trajectories_subplots(
     save_path: str | None = None,
 ) -> None:
     """
-    Plot multiple 3D trajectory sets as subplots in one figure.
+    Plot multiple 3D trajectory sets as subplots in a single figure.
 
     Args:
         trajectory_sets (list): List of tuples, each containing (past, true_line, pred_line),
-                                where each is np.ndarray of shape (traj_len, 3).
-        labels (list): Labels for each line in a subplot.
-        colors (list): Colors for each line in a subplot.
+                                each np.ndarray of shape (traj_len, 3).
+        labels (list, optional): Labels for lines within each subplot.
+        colors (list, optional): Colors for lines within each subplot.
         title (str): Overall figure title.
         figsize (tuple): Figure size.
+        save_path (str, optional): Path to save the figure.
     """
+
     num_plots = len(trajectory_sets)
     fig = plt.figure(figsize=figsize)
     cols = math.ceil(math.sqrt(num_plots))
@@ -173,9 +188,20 @@ def plot_3d_geo_trajectories(
     save_path: str | None = None,
 ) -> None:
     """
-    Plot multiple 3D trajectory sets as subplots with custom scaling for
-    latitude, longitude, and altitude axes.
+    Plot multiple 3D trajectory sets with latitude, longitude, and altitude axes.
+
+    Args:
+        trajectory_sets (list): List of tuples (past, true_line, pred_line) of shape (traj_len, 3).
+        labels (list, optional): Labels for the lines within each subplot.
+        colors (list, optional): Colors for the lines within each subplot.
+        title (str): Overall figure title.
+        figsize (tuple): Figure size.
+        lat_grid (float): Grid spacing for latitude axis.
+        lon_grid (float): Grid spacing for longitude axis.
+        alt_grid (float): Grid spacing for altitude axis.
+        save_path (str, optional): Path to save the figure.
     """
+
     num_plots = len(trajectory_sets)
     fig = plt.figure(figsize=figsize)
     cols = math.ceil(math.sqrt(num_plots))
@@ -258,17 +284,18 @@ def plot_3d_pred_vs_true(
     save_path: str | None = None,
 ) -> None:
     """
-    Plot a 3D trajectory comparing true vs predicted coordinates.
+    Plot a 3D trajectory comparing predicted vs true coordinates.
 
     Args:
-        true_coords (np.ndarray): Array of shape (num_points, 3) with true coordinates.
+        true_coords (np.ndarray): Array of shape (num_points, 3) with ground-truth coordinates.
         pred_coords (np.ndarray): Array of shape (num_points, 3) with predicted coordinates.
-        labels (list): Labels for the lines (default ["True", "Predicted"]).
-        colors (list): Colors for the lines (default ["g", "r"]).
+        labels (list, optional): Labels for true and predicted lines (default ["Actual Trajectory", "Predicted Trajectory"]).
+        colors (list, optional): Colors for predicted line (default ["r"]).
         title (str): Plot title.
         figsize (tuple): Figure size.
-        save_path (str): If provided, saves the plot to this path.
+        save_path (str, optional): Path to save the figure.
     """
+
     labels = labels or ["Actual Trajectory", "Predicted Trajectory"]
     colors = colors or ["r"]
 
@@ -279,9 +306,9 @@ def plot_3d_pred_vs_true(
         true_coords[:, 0],
         true_coords[:, 1],
         true_coords[:, 2],
-        color='k',        # black
-        linestyle='--',   # dashed
-        linewidth=1,   # thinner line
+        color="k",  # black
+        linestyle="--",  # dashed
+        linewidth=1,  # thinner line
         label=labels[0],
     )
     ax.plot(
@@ -289,7 +316,7 @@ def plot_3d_pred_vs_true(
         pred_coords[:, 1],
         pred_coords[:, 2],
         color=colors[0],
-        linewidth=1,   # thinner line
+        linewidth=1,  # thinner line
         label=labels[1],
     )
 
@@ -303,16 +330,3 @@ def plot_3d_pred_vs_true(
     if save_path:
         plt.savefig(save_path)
     plt.show()
-
-
-# Example usage:
-
-# plot_2d_trajectory(past, true_line, pred_line,
-#                    labels=["Past", "True", "Predicted"],
-#                    colors=["b", "g", "r"],
-#                    title="2D Trajectory Prediction")
-
-# plot_3d_trajectory(traj_3d_sample1, traj_3d_sample2,
-#                    labels=["Trajectory 1", "Trajectory 2"],
-#                    colors=["b", "r"],
-#                    title="3D Trajectories")

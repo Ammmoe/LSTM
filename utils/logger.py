@@ -1,16 +1,19 @@
 """
 logger.py
 
-Provides a utility function to create a timestamped experiment logger.
+Provides utilities to create a timestamped experiment logger.
 
-This module allows users to easily set up logging for machine learning experiments
-or other scripts. It automatically creates an experiment folder with a timestamp
-inside a specified root directory and configures a logger to write logs both
-to a file and optionally to the console.
+This module simplifies logging for experiments or scripts by automatically
+creating a timestamped experiment folder and configuring a logger that writes
+to both a log file and optionally to the console. Useful for machine learning
+experiments, data processing scripts, or any project where organized logging
+is desired.
 
 Functions:
-- get_logger(exp_root="experiments", log_name="train.log")
-    Creates a logger and an experiment folder, returning both for use in scripts.
+----------
+get_logger(exp_root="experiments", log_name="train.log")
+    Creates a logger and a timestamped experiment folder, returning both
+    for use in scripts.
 """
 
 import logging
@@ -20,16 +23,23 @@ from datetime import datetime
 
 def get_logger(exp_root="experiments", log_name="train.log"):
     """
-    Sets up a logger that writes to a timestamped experiment folder.
+    Set up a logger that writes logs to a timestamped experiment folder.
 
     Args:
-        exp_root (str): Root folder for all experiments.
-        log_name (str): Name of the log file.
+        exp_root (str, optional): Root directory to store experiment folders. Defaults to "experiments".
+        log_name (str, optional): Name of the log file. Defaults to "train.log".
 
     Returns:
-        logger (logging.Logger): Configured logger.
-        exp_dir (str): Path to the experiment folder.
+        tuple:
+            logger (logging.Logger): Configured logger object.
+            exp_dir (str): Path to the created timestamped experiment folder.
+
+    Notes:
+        - A new folder is created inside `exp_root` with the current timestamp (YYYYMMDD_HHMMSS).
+        - Logger writes to both the log file and the console.
+        - Calling this function multiple times avoids adding duplicate handlers.
     """
+
     # Ensure root experiments folder exists
     os.makedirs(exp_root, exist_ok=True)
 

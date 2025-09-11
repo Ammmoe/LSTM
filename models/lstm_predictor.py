@@ -1,7 +1,14 @@
 """
 lstm_predictor.py
 
-Implements a Seq2Seq LSTM model for trajectory prediction.
+Defines a sequence-to-sequence LSTM model for predicting future 2D or 3D trajectories.
+
+The model uses an encoder-decoder architecture:
+- The encoder LSTM processes past trajectory points (LOOK_BACK timesteps).
+- The decoder LSTM predicts future trajectory points autoregressively.
+- A fully connected layer maps LSTM hidden states to output coordinates.
+
+This model is suitable for trajectory prediction tasks in robotics, UAVs, and motion modeling.
 """
 
 import torch
@@ -13,15 +20,22 @@ class TrajPredictor(nn.Module):
     """
     Sequence-to-sequence LSTM model for trajectory prediction.
 
+    Architecture:
+        - Encoder LSTM: Encodes past trajectory of length LOOK_BACK.
+        - Decoder LSTM: Autoregressively generates future trajectory of length FORWARD_LEN.
+        - Fully connected layer: Maps LSTM hidden states to output coordinates.
+
     Args:
-        input_size (int): Number of input features per timestep (default=2 for x,y).
-        hidden_size (int): Number of hidden units in the LSTM.
-        output_size (int): Number of output features per timestep (default=2 for x,y).
-        num_layers (int): Number of stacked LSTM layers.
+        input_size (int): Number of input features per timestep (e.g., 2 for x,y or 3 for x,y,z).
+        hidden_size (int): Number of hidden units in the LSTM layers.
+        output_size (int): Number of output features per timestep.
+        num_layers (int): Number of stacked LSTM layers for both encoder and decoder.
 
     Forward Pass:
-        - Encodes past LOOK_BACK timesteps using an LSTM encoder.
-        - Decodes step by step autoregressively to generate FORWARD_LEN future coordinates.
+        - Accepts a batch of past trajectories.
+        - Encodes past trajectory using the encoder LSTM.
+        - Decodes future trajectory step by step, feeding each prediction as the next decoder input.
+        - Returns predicted future sequence.
     """
 
     def __init__(self, input_size=3, hidden_size=128, output_size=3, num_layers=1):
@@ -31,7 +45,7 @@ class TrajPredictor(nn.Module):
         self.fc = nn.Linear(hidden_size, output_size)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        
+
         # Apply Xavier initialization
         self._init_weights()
 
@@ -53,15 +67,23 @@ class TrajPredictor(nn.Module):
 
     def forward(self, x, pred_len=1):
         """
-        Forward pass through the model.
+        Perform a forward pass to predict future trajectory points.
 
         Args:
-            x (torch.Tensor): Input sequence of shape (batch, LOOK_BACK, input_size).
-            future_len (int): Number of future steps to predict.
+            x (torch.Tensor): Input past trajectory of shape (batch_size, LOOK_BACK, input_size).
+            pred_len (int): Number of future timesteps to predict (default=1).
 
         Returns:
-            torch.Tensor: Predicted future sequence of shape (batch, future_len, output_size).
+            torch.Tensor: Predicted future trajectory.
+                - Shape (batch_size, pred_len, output_size) if pred_len > 1
+                - Shape (batch_size, output_size) if pred_len == 1
+
+        Notes:
+            - The model uses autoregressive decoding: each predicted point is fed back
+            as input to the decoder for predicting the next timestep.
+            - Suitable for predicting sequences of arbitrary length.
         """
+
         # Encode past trajectory
         _, (h, c) = self.encoder(x)
 

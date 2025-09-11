@@ -1,10 +1,13 @@
 """
 metrics.py
 
-This module provides evaluation utilities for trajectory prediction models.
-It includes functions to compute error metrics (MSE, RMSE, MAE) between predicted
-and ground-truth trajectories, with support for inverse scaling to restore values
-to their original units (e.g., meters).
+Provides evaluation utilities for trajectory prediction models.
+
+This module includes functions to compute common regression metrics such as
+Mean Squared Error (MSE), Root Mean Squared Error (RMSE), and Mean Absolute
+Error (MAE) between predicted and ground-truth trajectories. It supports
+inverse scaling to restore values to their original units (e.g., meters),
+and computes both overall and per-axis metrics.
 """
 
 from typing import Tuple
@@ -24,25 +27,30 @@ def evaluate_metrics(
     Tuple[float, float, float],
 ]:
     """
-    Compute regression evaluation metrics (MSE, RMSE, MAE) for trajectory predictions.
+    Compute regression metrics for predicted 3D trajectories.
 
     Args:
-        y_true (torch.Tensor): Ground-truth values with shape (batch_size, seq_len, 3).
-        y_pred (torch.Tensor): Predicted values with shape (batch_size, seq_len, 3).
-        scaler (MinMaxScaler): Fitted scaler used to inverse-transform data
-                                back to original units (e.g., meters).
+        y_true (torch.Tensor): Ground-truth trajectory of shape (batch_size, seq_len, 3).
+        y_pred (torch.Tensor): Predicted trajectory of shape (batch_size, seq_len, 3).
+        scaler (MinMaxScaler): Fitted scaler used to inverse-transform predictions
+                            back to original units (e.g., meters).
 
     Returns:
-        Tuple[float, float, float]:
-            - mse: Mean Squared Error (in original units²).
-            - rmse: Root Mean Squared Error (in original units).
-            - mae: Mean Absolute Error (in original units).
+        tuple:
+            - mse (float): Mean Squared Error over all points.
+            - rmse (float): Root Mean Squared Error over all points.
+            - mae (float): Mean Absolute Error over all points.
+            - ede (float): Mean Euclidean distance error over all points.
+            - axis_mse (tuple[float, float, float]): MSE per axis (x, y, z).
+            - axis_rmse (tuple[float, float, float]): RMSE per axis (x, y, z).
+            - axis_mae (tuple[float, float, float]): MAE per axis (x, y, z).
 
     Notes:
-        - The function automatically reshapes tensors, performs inverse scaling,
-            and converts results back into torch for metric computation.
-        - All returned metrics are scalar floats.
+        - The function reshapes tensors, applies inverse scaling, and converts
+        results back to torch tensors for metric computation.
+        - Supports computing both overall metrics and per-axis metrics for 3D trajectories.
     """
+
     # Get feature dimensions dynamically
     num_features_y = y_true.shape[-1]  # 3 or 4 depending on USE_TIME_FEATURE
 

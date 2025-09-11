@@ -1,16 +1,17 @@
 """
 coordinate_converter.py
 
-This module provides utility functions for converting geographic coordinates
-(latitude, longitude, altitude) into metric coordinates (meters) relative to
-a reference point. The primary function supports converting latitude and
-longitude to Cartesian x/y coordinates, preserving altitude as-is.
+Provides utility functions for converting geographic coordinates (latitude, longitude, altitude)
+into metric Cartesian coordinates (meters) relative to a reference point.
+
+This is useful for trajectory prediction, mapping, or robotics applications where
+operations in meters are preferred over degrees.
 
 Functions:
------------
+----------
 latlon_to_meters(lat, lon, ref_lat=0.0, ref_lon=0.0)
-    Convert arrays of latitude and longitude (in degrees) into x and y
-    coordinates in meters relative to a reference point (ref_lat, ref_lon).
+    Convert latitude and longitude arrays (in degrees) into x and y coordinates in meters
+    relative to a specified reference point. Altitude is preserved separately if needed.
 
 Usage Example:
 --------------
@@ -26,15 +27,23 @@ import numpy as np
 
 def latlon_to_meters(lat, lon, ref_lat=0.0, ref_lon=0.0):
     """
-    Convert latitude and longitude to meters relative to a reference point.
+    Convert latitude and longitude coordinates to Cartesian meters relative to a reference point.
 
     Args:
-        lat, lon: Arrays of latitude/longitude in degrees
-        ref_lat, ref_lon: Reference point (degrees)
+        lat (array-like): Latitude values in degrees.
+        lon (array-like): Longitude values in degrees.
+        ref_lat (float, optional): Reference latitude in degrees (default=0.0).
+        ref_lon (float, optional): Reference longitude in degrees (default=0.0).
 
     Returns:
-        x, y: Coordinates in meters
+        tuple of np.ndarray: (x, y) coordinates in meters relative to the reference point.
+
+    Notes:
+        - Uses a simple equirectangular approximation assuming small distances.
+        - Earth radius is assumed to be 6,378,137 meters.
+        - Altitude is not converted; only horizontal x/y coordinates are computed.
     """
+
     # Earth radius
     R = 6378137  # meters
 
@@ -47,4 +56,3 @@ def latlon_to_meters(lat, lon, ref_lat=0.0, ref_lon=0.0):
     x = R * (lon_rad - ref_lon_rad) * np.cos(ref_lat_rad)
     y = R * (lat_rad - ref_lat_rad)
     return x, y
-
