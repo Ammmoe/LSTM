@@ -29,7 +29,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader, TensorDataset
 from data.artificial_trajectory_generator import generate_sine_cosine_trajectories_3d
-from models.gru_predictor import TrajPredictor
+from models.attention_bi_gru_predictor import TrajPredictor
 from utils.logger import get_logger
 from utils.plot_generator import plot_3d_pred_vs_true, plot_3d_trajectories_subplots
 from utils.model_evaluator import evaluate_metrics
@@ -183,7 +183,8 @@ logger.info("Test sequences: %s", X_test_tensor.shape)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_params = {
     "input_size": 3,  # x, y, z, t
-    "hidden_size": 64,
+    "enc_hidden_size": 64,
+    "dec_hidden_size": 64,
     "output_size": 3,
     "num_layers": 1,
 }
