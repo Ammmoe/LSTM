@@ -47,17 +47,26 @@ USE_TIME_FEATURE = False  # include time as input feature
 LOOK_BACK = 50  # past frames
 FORWARD_LEN = 5  # future frames
 
-# Initialize variables
-N_SAMPLES = 0
-data_3d = None
-
 # Training parameters
 EPOCHS = 500
 BATCH_SIZE = 70
 LEARNING_RATE = 1e-3
 
+# Model parameters
+model_params = {
+    "input_size": 3,  # x, y, z, t
+    "enc_hidden_size": 64,
+    "dec_hidden_size": 64,
+    "output_size": 3,
+    "num_layers": 1,
+}
+
 # Plotting parameters
 NUM_PLOTS = 6
+
+# Initialize variables
+N_SAMPLES = 0
+data_3d = None
 
 # Setup logger and experiment folder
 logger, exp_dir = get_logger()
@@ -206,43 +215,48 @@ epochs_no_improve = 0
 early_stop = False
 
 model.train()
-for epoch in range(EPOCHS):
-    total_loss = 0
-    for batch_x, batch_y in train_loader:
-        batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+try:
+    for epoch in range(EPOCHS):
+        total_loss = 0
+        for batch_x, batch_y in train_loader:
+            batch_x, batch_y = batch_x.to(device), batch_y.to(device)
 
-        optimizer.zero_grad()
-        predictions = model(batch_x)
-        loss = criterion(predictions, batch_y)
-        loss.backward()
-        optimizer.step()
-        total_loss += loss.item()
+            optimizer.zero_grad()
+            predictions = model(batch_x)
+            loss = criterion(predictions, batch_y)
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
 
-    avg_train_loss = total_loss / len(train_loader)
+        avg_train_loss = total_loss / len(train_loader)
 
-    # Log per-epoch training metrics
-    logger.info("Epoch %d/%d - Train Loss: %.7f", epoch + 1, EPOCHS, avg_train_loss)
+        # Log per-epoch training metrics
+        logger.info("Epoch %d/%d - Train Loss: %.7f", epoch + 1, EPOCHS, avg_train_loss)
 
-    # Check for early stopping
-    if avg_train_loss < best_loss:
-        best_loss = avg_train_loss
-        epochs_no_improve = 0
-        torch.save(model.state_dict(), os.path.join(exp_dir, "best_model.pt"))
-    else:
-        epochs_no_improve += 1
+        # Check for early stopping
+        if avg_train_loss < best_loss:
+            best_loss = avg_train_loss
+            epochs_no_improve = 0
+            torch.save(model.state_dict(), os.path.join(exp_dir, "best_model.pt"))
+        else:
+            epochs_no_improve += 1
 
-    # If no improvement for 'patience' epochs, stop training
-    if epochs_no_improve >= patience:
-        logger.info("Early stopping triggered after %d epochs", epoch + 1)
-        early_stop = True
-        break
+        # If no improvement for 'patience' epochs, stop training
+        if epochs_no_improve >= patience:
+            logger.info("Early stopping triggered after %d epochs", epoch + 1)
+            early_stop = True
+            break
+
+except KeyboardInterrupt:
+    logger.warning("Training interrupted by user! Running evaluation...")
+
+# Save last-epoch model
+finally:
+    torch.save(model.state_dict(), os.path.join(exp_dir, "last_model.pt"))
 
 # If training completed without early stopping
 if not early_stop:
     logger.info("Training finished without early stopping.")
-
-# Save last-epoch model
-torch.save(model.state_dict(), os.path.join(exp_dir, "last_model.pt"))
 
 # Log total training time
 training_end_time = time.time()
