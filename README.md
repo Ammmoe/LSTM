@@ -33,16 +33,6 @@ Minimum recommended environment:
 
 ---
 
-## ▶️ Run the training script
-
-```bash
-python train.py
-# or
-python3 train.py
-```
-
----
-
 ## ⚙️ Quick start — choose a model
 
 Change the model import at the top of `train.py` to select the architecture you want to test:
@@ -189,6 +179,16 @@ EPOCHS = 200
 BATCH_SIZE = 32
 LEARNING_RATE = 1e-3
 NUM_PLOTS = 4
+```
+
+---
+
+## ▶️ Run the training script
+
+```bash
+python train.py
+# or
+python3 train.py
 ```
 
 ---
