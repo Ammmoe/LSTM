@@ -193,9 +193,12 @@ python3 train.py
 
 ---
 
-## Notes
+## 📚 Dataset Credits
 
-* The repo is designed to be modular: swap models, datasets, and parameters quickly for experimentation.
+This project makes use of the following publicly available datasets:
+
+* **Zurich MAV Dataset** – [https://rpg.ifi.uzh.ch/zurichmavdataset.html](https://rpg.ifi.uzh.ch/zurichmavdataset.html)  
+* **Quadcopter Delivery Dataset (CMU)** – [https://kilthub.cmu.edu/articles/dataset/Data_Collected_with_Package_Delivery_Quadcopter_Drone/12683453](https://kilthub.cmu.edu/articles/dataset/Data_Collected_with_Package_Delivery_Quadcopter_Drone/12683453)
 
 ---
 
