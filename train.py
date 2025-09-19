@@ -190,13 +190,6 @@ logger.info("Test sequences: %s", X_test_tensor.shape)
 
 # Train Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_params = {
-    "input_size": 3,  # x, y, z, t
-    "enc_hidden_size": 64,
-    "dec_hidden_size": 64,
-    "output_size": 3,
-    "num_layers": 1,
-}
 model = TrajPredictor(**model_params).to(device)
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
